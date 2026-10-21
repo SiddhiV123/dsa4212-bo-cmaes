@@ -1,0 +1,47 @@
+
+# DSA4212 Project: Bayesian Optimisation versus Evolutionary Strategies
+
+project:
+  name: "Bayesian Optimisation versus Evolutionary Strategies"
+  status: "development"
+
+# Objective functions
+objectives:
+  main:
+    - "ellipsoid"
+  supporting:
+    - "sphere"
+    - "rastrigin"
+
+  # To be finalised before the main experiments
+  dimension: null
+  condition_numbers: []
+  rotations:
+    - false
+    - true
+
+# Optimisation methods
+methods:
+  - "bayesian_optimisation"
+  - "cma_es_full"
+  - "cma_es_diagonal"
+  - "random_uniform"
+  - "random_gaussian"
+
+# Experimental protocol
+experiment:
+  # These settings must be decided before the main runs
+  evaluation_budget: null
+  random_seeds: []
+  repetitions: null
+
+# Evaluation
+evaluation:
+  primary_metric: "best_objective_value"
+  objective_direction: "minimize"
+
+# Reproducibility
+reproducibility:
+  save_raw_results: true
+  save_experiment_config: true
+  record_random_seed: true
