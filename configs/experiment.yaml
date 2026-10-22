@@ -9,39 +9,162 @@ project:
 objectives:
   main:
     - "ellipsoid"
+
   supporting:
     - "sphere"
     - "rastrigin"
 
-  # To be finalised before the main experiments
-  dimension: null
-  condition_numbers: []
+  # Main synthetic experiment
+  dimension: 4
+  condition_numbers:
+    - 1
+    - 100
+    - 10000
+
+  # false = aligned; true = randomly rotated
   rotations:
     - false
     - true
+
+  # Domain and optimum placement
+  # Confirm these values during the pilot before the main runs.
+  domain:
+    lower_bound: -5.0
+    upper_bound: 5.0
+    optimum_placement: "random_sub_box"
+    optimum_sub_box_fraction: null
+
+  # Rotation generation
+  rotation:
+    method: "haar_random_orthogonal"
+    seed_by_problem_instance: true
+
+  # Supporting-objective settings
+  supporting_settings:
+    sphere:
+      role: "sanity_check"
+    rastrigin:
+      dimensions:
+        - 4
+        - 10
+      role: "supporting_comparison"
+
+  # Optional extension; exclude unless time permits.
+  optional_extensions:
+    ellipsoid_dimension_10: false
 
 # Optimisation methods
 methods:
   - "bayesian_optimisation"
   - "cma_es_full"
   - "cma_es_diagonal"
+  - "cma_es_isotropic"
   - "random_uniform"
-  - "random_gaussian"
+
+method_settings:
+  bayesian_optimisation:
+    surrogate: "gaussian_process"
+    kernel: "matern_52"
+    length_scale: "ard"
+    acquisition: "expected_improvement"
+    initial_design_size: null
+    input_scaling: "to_unit_box"
+
+  cma_es_full:
+    covariance: "full"
+    sigma0: null
+
+  cma_es_diagonal:
+    covariance: "diagonal"
+    sigma0: null
+
+  cma_es_isotropic:
+    covariance: "isotropic"
+    sigma0: null
+
+  random_uniform:
+    sampling: "uniform_within_bounds"
 
 # Experimental protocol
 experiment:
-  # These settings must be decided before the main runs
+  # Finalise after pilot runs.
   evaluation_budget: null
-  random_seeds: []
   repetitions: null
+
+  # Fixed base seed; derive separate, reproducible seeds for
+  # problem instances and optimisation methods.
+  base_seed: 4212
+  seed_strategy: "deterministic_per_condition_replicate_method"
+
+  # All methods must use the same objective-evaluation budget.
+  budget_policy:
+    count_initial_design: true
+    count_every_objective_call: true
+    truncate_final_batch_to_budget: true
+
+  # Use the same problem instance across methods within each replicate.
+  pairing:
+    shared_problem_instance: true
+    separate_method_random_streams: true
+
+  # Boundary handling must be consistent and documented.
+  boundary_handling: null
 
 # Evaluation
 evaluation:
-  primary_metric: "best_objective_value"
   objective_direction: "minimize"
 
-# Reproducibility
+  primary_metric: "simple_regret"
+  simple_regret:
+    definition: "best_evaluated_objective_value_minus_known_optimum"
+    log_transform: true
+    log_floor: null
+
+  secondary_metrics:
+    - "best_objective_value"
+    - "evaluations_to_target"
+
+  # Pre-register the primary comparison.
+  primary_comparison:
+    objective: "ellipsoid"
+    dimension: 4
+    condition_number: 10000
+    methods:
+      - "cma_es_diagonal"
+      - "cma_es_full"
+    contrast: "difference_in_differences"
+    factors:
+      - "rotation"
+
+  uncertainty:
+    method: "paired_bootstrap"
+    confidence_level: 0.95
+
+# Diagnostics
+diagnostics:
+  record_best_so_far: true
+  record_evaluation_history: true
+  record_covariance_snapshots: true
+  record_gp_hyperparameters: true
+  record_boundary_events: true
+
+  synthetic_mechanism:
+    effective_condition_number: true
+    gp_ard_lengthscales: true
+    jacobi_scaled_condition_number: true
+
+# Reproducibility and output
 reproducibility:
   save_raw_results: true
   save_experiment_config: true
   record_random_seed: true
+  save_problem_instance: true
+  save_method_configuration: true
+  record_software_versions: true
+
+results:
+  directory: "results"
+  raw_data_directory: "results/raw"
+  summary_directory: "results/summary"
+  figures_directory: "results/figures"
+  log_format: "parquet"
