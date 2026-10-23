@@ -243,7 +243,7 @@ Other condition numbers, BO comparisons, intermediate checkpoints, and evaluatio
 
 $$
 \kappa_{\mathrm{eff}}
-=\operatorname{cond}(C^{1/2}HC^{1/2}),
+=\mathrm{cond}(C^{1/2}HC^{1/2}),
 $$
 
 where $C$ is the learned CMA-ES covariance and $H$ is the objective Hessian. Also examine BO ARD lengthscales relative to curvature in aligned cases.
@@ -336,8 +336,8 @@ The custom implementation must document and test the variance-bound rule used in
 For a method's estimate $\hat\theta$, define
 
 $$
-g=\operatorname{NLL}(\hat\theta)
--\operatorname{NLL}_{\mathrm{best,window}}.
+g=\mathrm{NLL}(\hat\theta)
+-\mathrm{NLL}_{\mathrm{best,window}}.
 $$
 
 Analyse $\log_{10}(g+\epsilon)$, with a positive $\epsilon$ frozen before final analysis. Record signed gaps to the L-BFGS-B reference separately and flag cases where a method outperforms that reference.
