@@ -1,170 +1,476 @@
-
-# DSA4212 Project: Bayesian Optimisation versus Evolutionary Strategies
+# DSA4212 project experiment configuration
+# Project: When Does Geometry-Aware Search Pay Off?
+# Based on proposal v9 and the current README.
+#
+# IMPORTANT:
+# - null means a setting has not yet been finalised (not zero, not disabled).
+# - Provisional values must be frozen after the pilot.
+# - The eventual Python code must validate this configuration before running.
 
 project:
-  name: "Bayesian Optimisation versus Evolutionary Strategies"
-  status: "development"
+  name: "When Does Geometry-Aware Search Pay Off?"
+  course: "DSA4212"
+  proposal_version: "v9"
+  proposal_date: "2026-10-22"
+  status: "implementation_and_pilot_preparation"
+  primary_study: "synthetic_ellipsoid"
+  secondary_study: "garch_11"
 
-# Objective functions
-objectives:
-  main:
-    - "ellipsoid"
+reproducibility:
+  base_seed: 4212
+  save_problem_instances: true
+  save_method_seeds: true
+  save_software_versions: true
+  record_evaluation_count: true
+  record_wall_clock_time: true
 
-  supporting:
-    - "sphere"
-    - "rastrigin"
+# --------------------------------------------------
+# Synthetic study
+# --------------------------------------------------
 
-  # Main synthetic experiment
-  dimension: 4
-  condition_numbers:
-    - 1
-    - 100
-    - 10000
+synthetic:
+  primary_objective: "ellipsoid"
 
-  # false = aligned; true = randomly rotated
-  rotations:
-    - false
-    - true
-
-  # Domain and optimum placement
-  # Confirm these values during the pilot before the main runs.
+  # Search domain for the synthetic study only.
+  # The GARCH study has its own bounds (finance.model.constraints).
   domain:
     lower_bound: -5.0
     upper_bound: 5.0
-    optimum_placement: "random_sub_box"
-    optimum_sub_box_fraction: null
+    status: "provisional"
+    boundary_handling: null
+    # Choose and document clipping, a penalty, or another
+    # consistent boundary strategy before the main runs.
 
-  # Rotation generation
-  rotation:
-    method: "haar_random_orthogonal"
-    seed_by_problem_instance: true
+  ellipsoid:
+    dimensions: [4]
+    condition_numbers: [1, 100, 10000]
+    orientations:
+      - "aligned"
+      - "rotated"
 
-  # Supporting-objective settings
-  supporting_settings:
-    sphere:
-      role: "sanity_check"
-    rastrigin:
-      dimensions:
-        - 4
-        - 10
-      role: "supporting_comparison"
+    formula: "sum_{i=1..d} kappa^((i-1)/(d-1)) * z_i^2"
+    transformed_coordinates: "z = R @ (x - x_opt)"
+    optimum_value: 0.0
 
-  # Optional extension; exclude unless time permits.
-  optional_extensions:
-    ellipsoid_dimension_10: false
+    optimum:
+      sampling: "uniform_in_configured_sub_box"
+      sub_box_fraction: null
+      independent_of_optimizer_initialisation: true
 
+    rotation:
+      aligned_matrix: "identity"
+      rotated_matrix: "haar_random_orthogonal"
+      generation_method: "QR_with_sign_correction"
+      save_matrix: true
+
+    condition_number_one_control: true
+
+    instance_covariates:
+      kappa_H: "cond(H)"
+      kappa_J: "cond(D^(-1/2) H D^(-1/2)), D = diag(H)"
+      expected_kappa_J_for_aligned: 1.0
+
+  sphere:
+    enabled: true
+    dimensions: [2, 4, 10]
+    formula: "sum_i x_i^2"
+    optimum_value: 0.0
+    purpose:
+      - "unit_tests"
+      - "method_interface_checks"
+      - "sanity_checks"
+
+  rastrigin:
+    enabled: false
+    status: "future_work"
+
+# --------------------------------------------------
 # Optimisation methods
-methods:
-  - "bayesian_optimisation"
-  - "cma_es_full"
-  - "cma_es_diagonal"
-  - "cma_es_isotropic"
-  - "random_uniform"
+# --------------------------------------------------
 
-method_settings:
+methods:
   bayesian_optimisation:
-    surrogate: "gaussian_process"
-    kernel: "matern_52"
-    length_scale: "ard"
-    acquisition: "expected_improvement"
+    enabled: true
+    surrogate: "GaussianProcess"
+    kernel: "Matern52"
+    ard: true
+    acquisition_function: "ExpectedImprovement"
+    input_scaling: "unit_box"
     initial_design_size: null
-    input_scaling: "to_unit_box"
+    initial_design_policy: null
+    implementation_library: null
+    implementation_library_version: null
+    acquisition_optimiser_restarts: null
+    hyperparameter_fit_restarts: null
+
+    # The objective is noise-free, but an exact zero noise term
+    # can make GP fitting numerically unstable. Choose and document
+    # a small fixed jitter after the smoke test.
+    observation_noise: null
+    observation_noise_policy: "fixed_small_jitter_not_learned"
+    use_cma_initial_point_as_first_evaluation: null
+    status: "pending_smoke_test_and_pilot"
+
+  # Settings shared by all three CMA-ES variants.
+  # NOTE: `inherits` is a project convention, not YAML inheritance.
+  # The config loader must merge cma_es_common into each variant,
+  # and a unit test must confirm that the resolved settings match.
+  cma_es_common:
+    library: "cma"
+    library_version: null
+    initial_point_policy: "uniform_in_search_box"
+    initial_point_independent_of_optimum: true
+    initial_point_shared_across_variants: true
+    initial_step_size_fraction_of_box_width: 0.3
+    initial_step_size_status: "provisional"
+    population_size: null
+    boundary_handling: null
+
+    stopping:
+      policy: "run_to_budget"
+
+      # pycma's default tolerance-based termination can stop a run
+      # before the evaluation budget is exhausted. Verify the relevant
+      # option names in the installed version and disable or relax
+      # tolerance-based stopping where appropriate.
+      #
+      # If a run nevertheless terminates early, preserve its best
+      # evaluated point, flag it as incomplete, retain it in the
+      # analysis, and report incomplete-run counts by method and
+      # condition. Do not describe it as a full-budget run.
+      max_evaluations_source: "evaluation.budget_per_method"
+      disable_tolerance_termination: true
+      on_early_termination: "flag_incomplete_keep_best_evaluated_point"
+      incomplete_run_policy: "keep_in_analysis_with_flag_and_report_counts_per_method_and_condition"
 
   cma_es_full:
-    covariance: "full"
-    sigma0: null
+    enabled: true
+    inherits: "cma_es_common"
+    covariance_mode: "full"
+    options: {}
 
   cma_es_diagonal:
-    covariance: "diagonal"
-    sigma0: null
+    enabled: true
+    inherits: "cma_es_common"
+    covariance_mode: "diagonal"
+    variant: "separable_cma_es"
+    options:
+      CMA_diagonal: true
+    covariance_expectation: "off_diagonals_zero_throughout"
+    verification_required: true
 
-  cma_es_isotropic:
-    covariance: "isotropic"
-    sigma0: null
+  isotropic_es:
+    enabled: true
+    inherits: "cma_es_common"
+    covariance_mode: "isotropic"
+    options:
+      CMA_on: 0
+    covariance_expectation: "identity_throughout"
+    verification_required: true
 
-  random_uniform:
-    sampling: "uniform_within_bounds"
+  uniform_random_search:
+    enabled: true
+    sampling: "independent_uniform_draws_over_search_box"
+    uses_objective_feedback_to_choose_next_point: false
+    curve_method: "one_long_run_split_into_independent_experiments"
+    long_run_length: null
 
-# Experimental protocol
-experiment:
-  # Finalise after pilot runs.
-  evaluation_budget: null
-  repetitions: null
+# --------------------------------------------------
+# Fairness and evaluation budget
+# --------------------------------------------------
 
-  # Fixed base seed; derive separate, reproducible seeds for
-  # problem instances and optimisation methods.
-  base_seed: 4212
-  seed_strategy: "deterministic_per_condition_replicate_method"
-
-  # All methods must use the same objective-evaluation budget.
-  budget_policy:
-    count_initial_design: true
-    count_every_objective_call: true
-    truncate_final_batch_to_budget: true
-
-  # Use the same problem instance across methods within each replicate.
-  pairing:
-    shared_problem_instance: true
-    separate_method_random_streams: true
-
-  # Boundary handling must be consistent and documented.
-  boundary_handling: null
-
-# Evaluation
 evaluation:
-  objective_direction: "minimize"
+  budget_per_method: null
+  target_replicates_per_condition: 20
+  replicate_count_status: "provisional"
+  exact_budget_required: true
 
-  primary_metric: "simple_regret"
-  simple_regret:
-    definition: "best_evaluated_objective_value_minus_known_optimum"
-    log_transform: true
-    log_floor: null
+  # Every objective evaluation must pass through one counting wrapper.
+  # Optimisation methods must not have access to an uncapped objective.
+  budget_enforcement: "runner_level_counting_wrapper"
 
-  secondary_metrics:
-    - "best_objective_value"
-    - "evaluations_to_target"
+  cma_final_batch_rule: "evaluate_only_first_k_candidates_then_stop"
+  count_initial_design_evaluations: true
+  truncate_final_cma_batch_if_needed: true
+  return_best_evaluated_point: true
+  compare_methods_on_same_problem_instance: true
+  derive_method_seeds_separately: true
+  record_boundary_events: true
+  report_wall_clock_time_separately: true
 
-  # Pre-register the primary comparison.
+  checkpoints:
+    evaluation_counts: null
+    status: "pending_pilot"
+
+# --------------------------------------------------
+# Primary outcome and statistical analysis
+# --------------------------------------------------
+
+analysis:
+  primary_outcome: "final_simple_regret"
+  regret_definition: "f(x_best_evaluated) - f(x_opt)"
+  log_regret_base: 10
+  log_regret_floor: null
+  log_regret_floor_status: "pending_control_pilot"
+
   primary_comparison:
-    objective: "ellipsoid"
+    type: "difference_in_differences"
     dimension: 4
     condition_number: 10000
     methods:
       - "cma_es_diagonal"
       - "cma_es_full"
-    contrast: "difference_in_differences"
-    factors:
-      - "rotation"
+    formula: >
+      (mean_log_regret_rotated_diagonal -
+       mean_log_regret_aligned_diagonal) -
+      (mean_log_regret_rotated_full -
+       mean_log_regret_aligned_full)
+    interpretation: "positive means rotation hurts diagonal CMA-ES more than full CMA-ES"
+
+  pairing:
+    unit: "problem_instance"
+    same_problem_instance_across_methods: true
 
   uncertainty:
-    method: "paired_bootstrap"
+    method: "bootstrap_confidence_interval"
     confidence_level: 0.95
+    bootstrap_replicates: null
+    status: "pending_analysis_plan"
 
-# Diagnostics
+  invariance_tolerance:
+    value: null
+    source: "per_method_aligned_vs_rotated_spread_at_kappa_1"
+    status: "pending_control_pilot"
+
+  exploratory:
+    - "other_condition_numbers"
+    - "comparisons_involving_bo"
+    - "intermediate_checkpoints"
+    - "evaluations_to_target"
+
+# --------------------------------------------------
+# Mechanism diagnostics
+# --------------------------------------------------
+
 diagnostics:
-  record_best_so_far: true
-  record_evaluation_history: true
-  record_covariance_snapshots: true
-  record_gp_hyperparameters: true
-  record_boundary_events: true
+  evaluation_log:
+    record_candidate: true
+    record_objective_value: true
+    record_best_so_far: true
+    record_evaluation_number: true
+    record_boundary_event: true
+    record_method_and_seed: true
 
-  synthetic_mechanism:
-    effective_condition_number: true
-    gp_ard_lengthscales: true
-    jacobi_scaled_condition_number: true
+  cma_es:
+    save_covariance_snapshots: true
+    covariance_snapshot_frequency: null
+    effective_condition_number: >
+      cond(C^(1/2) H C^(1/2))
+    verify_diagonal_covariance: true
+    verify_isotropic_covariance: true
 
-# Reproducibility and output
-reproducibility:
-  save_raw_results: true
-  save_experiment_config: true
-  record_random_seed: true
-  save_problem_instance: true
-  save_method_configuration: true
-  record_software_versions: true
+  bayesian_optimisation:
+    save_ard_lengthscales: true
+    save_gp_hyperparameters: true
+    compare_lengthscales_to_curvature: "aligned_cases_only"
 
-results:
-  directory: "results"
-  raw_data_directory: "results/raw"
-  summary_directory: "results/summary"
-  figures_directory: "results/figures"
-  log_format: "parquet"
+  random_search:
+    validate_success_probability_law: true
+    success_probability_formula: "1 - (1 - q)^N"
+    success_criterion: null
+    large_uniform_sample_size: null
+
+# --------------------------------------------------
+# Secondary application: GARCH(1,1)
+# --------------------------------------------------
+
+finance:
+  enabled: true
+  priority: "secondary"
+
+  data:
+    series_id: "DCOILWTICO"
+    source: "FRED"
+    original_source: "U.S. Energy Information Administration"
+    source_url: "https://fred.stlouisfed.org/series/DCOILWTICO"
+    frozen_csv_path: "data/DCOILWTICO.csv"
+    retrieval_date: null
+    freeze_source_data_before_main_runs: true
+
+  preprocessing:
+    price_column: null
+    date_column: null
+    missing_observation_policy: "drop"
+    return_definition: "100 * log(P_t / P_(t-1))"
+    demean_returns_using_estimation_window_mean: true
+    nonpositive_price_date: "2020-04-20"
+    exclude_windows_containing_nonpositive_price: true
+    status: "pending_data_download_and_validation"
+
+  model:
+    name: "GARCH(1,1)"
+    likelihood: "Gaussian_QMLE"
+    objective: "negative_log_likelihood"
+    variance_recursion: "h_t = omega + alpha * r_(t-1)^2 + beta * h_(t-1)"
+    mean_treatment: "demeaned_by_estimation_window_mean"
+    variance_initialisation: "window_sample_variance"
+
+    parameterisation:
+      parameters: ["log_omega", "p", "s"]
+      p_definition: "alpha + beta"
+      s_definition: "alpha / (alpha + beta)"
+      alpha_recovery: "p * s"
+      beta_recovery: "p * (1 - s)"
+      omega_recovery: "exp(log_omega)"
+
+    constraints:
+      # v9: s is in [0, 1], so alpha and beta are nonnegative.
+      # Require 0 < p_lower < p_upper < 1.
+      p_lower: null
+      p_upper: null
+      s_lower: 0.0
+      s_upper: 1.0
+      log_omega_bounds: null
+
+      # log_omega bounds must be chosen using a documented rule
+      # based on the estimation-window sample variance.
+      require_alpha_nonnegative: true
+      require_beta_nonnegative: true
+      require_alpha_plus_beta_less_than_one: true
+
+      # s = 0 or s = 1 gives alpha = 0 or beta = 0.
+      # omega = exp(log_omega) > 0, so the variance recursion remains
+      # positive when initial variance is positive. No log of alpha
+      # or beta is taken by this parameterisation.
+      boundary_values_allowed: true
+
+    bounds_status: "pending_validation"
+
+  penalty_arm:
+    enabled: false
+    status: "cut_unless_time_allows"
+
+  rolling_windows:
+    estimation_window_trading_days: 750
+    step_trading_days: 250
+    window_dates: null
+    exclude_windows_containing_nonpositive_price: true
+
+  likelihood_validation:
+    reference_package: "arch"
+    minimum_validation_windows: 3
+    compare_custom_likelihood_with_reference: true
+    align_initial_variance_convention: true
+
+    # Use the same initial variance convention in both implementations.
+    # This deliberately overrides arch's default backcast for a fair
+    # likelihood comparison.
+    arch_backcast_override: "window_sample_variance"
+
+    # The custom likelihood must implement and document the same
+    # variance-bound rule used by the reference calculation. Do not
+    # assume that checking arch's bounds alone makes the recursions
+    # equivalent. Verify the variance sequences before comparing NLLs.
+    variance_bounds_policy: "implement_arch_compatible_bounds_and_test"
+    check_arch_variance_bounds: true
+    verify_recursion_matches_before_comparison: true
+
+    nll_tolerance: null
+    parameter_tolerance: null
+    status: "not_yet_run"
+
+  optimisation:
+    methods:
+      - "bayesian_optimisation"
+      - "cma_es_full"
+      - "cma_es_diagonal"
+      - "isotropic_es"
+      - "uniform_random_search"
+
+    evaluation_budget_per_method: null
+    # Provisional target range: 150-300 evaluations per method.
+    seeds_per_window: 10
+    # Provisional. If BO uses fewer seeds, declare and justify the
+    # difference before the main runs.
+    seeds_status: "provisional"
+
+    # Define one fixed, documented initial-point rule shared by
+    # all three CMA variants before running the study.
+    cma_initial_point_rule: null
+
+    reference_method: "multi_start_L-BFGS-B"
+    reference_multistart_count: null
+    reference_tolerance: null
+    report_reference_evaluation_count: true
+
+  gap:
+    # Define the reference separately within each estimation window.
+    # Include completed main runs and the reference optimiser, but
+    # exclude pilot runs. Freeze the reference set before analysis.
+    reference_value: "min_NLL_over_all_methods_seeds_and_reference_within_window"
+    scope: "per_window"
+    reference_set: "predefined_completed_main_runs_per_window"
+    exclude_pilot_runs: true
+    compute_after_all_runs_complete: true
+
+    definition: "g = NLL(theta_hat) - NLL_best_for_window"
+    nonnegative_by_construction: true
+    log_gap: "log10(g + epsilon)"
+    log_gap_epsilon: null
+
+    # epsilon must be strictly positive and frozen before final analysis.
+    record_signed_gap_to_lbfgsb: true
+    flag_windows_where_method_beats_reference: true
+
+  h3_conditioning_analysis:
+    predictor: "kappa_J"
+    secondary_predictor: "kappa_H"
+    hessian: "finite_difference_at_reference_optimum"
+    hessian_coordinates: "main_arm_unit_box"
+    boundary_optimum_handling: "one_sided_differences_and_flag_window"
+    response: "diagonal_minus_full_cma_es_log10_gap"
+    correlation: "Spearman"
+    bootstrap: "moving_block"
+    bootstrap_block_length: 3
+    block_length_status: "minimum_provisional"
+
+  h4_forecast_analysis:
+    enabled: true
+    metric: "QLIKE"
+    qlike_formula: "log(h_t) + v_t / h_t"
+    forecast_horizon_trading_days: 250
+    forecast_type: "one_step_ahead"
+    parameter_policy: "hold_estimated_parameters_fixed"
+    variance_proxy: "squared_demeaned_returns"
+    compare_against: "reference_optimum_qlike"
+    status: "secondary_exploratory_analysis"
+
+# --------------------------------------------------
+# Output paths
+# --------------------------------------------------
+
+paths:
+  data: "data"
+  raw_results: "results/raw"
+  processed_results: "results/processed"
+  figures: "results/figures"
+  report_figures: "report/figures"
+  raw_evaluation_format: "parquet"
+  processed_table_format: "csv"
+
+# --------------------------------------------------
+# Main-run freeze
+# --------------------------------------------------
+
+freeze:
+  require_pilot_complete: true
+  require_configuration_review: true
+  require_cma_option_verification: true
+  require_cma_stopping_policy_verified: true
+  require_cma_common_merge_test: true
+  require_objective_and_rotation_tests: true
+  require_budget_and_boundary_policy: true
+  require_log_regret_floor: true
+  require_invariance_tolerance: true
+  require_seed_policy: true
+  require_garch_likelihood_validation_before_finance_scale_up: true
