@@ -149,3 +149,40 @@ def test_invalid_inheritance_is_rejected():
 
     with pytest.raises(ConfigError, match="cma_es_full"):
         validate_config_structure(config)
+
+
+def test_pilot_overrides_apply_without_changing_main_config():
+    """Pilot settings apply only when the pilot stage is requested."""
+    main = load_config(stage="main")
+    pilot = load_config(stage="pilot")
+
+    # Main-run settings remain provisional.
+    assert main["evaluation"]["budget_per_method"] is None
+
+    # The pilot receives the configured provisional budget.
+    assert pilot["evaluation"]["budget_per_method"] == 500
+
+    # The pilot uses the configured optimum sub-box fraction.
+    assert (
+        pilot["synthetic"]["ellipsoid"]["optimum"]["sub_box_fraction"]
+        == 0.8
+    )
+
+
+def test_invalid_pilot_override_path_is_rejected():
+    """Typos in override paths should fail rather than be silently ignored."""
+    from config_loader import apply_pilot_overrides, ConfigError
+
+    config = load_config(stage="main")
+    config["pilot"]["overrides"] = {
+        "evaluation.this_setting_does_not_exist": 123
+    }
+
+    with pytest.raises(ConfigError, match="Invalid pilot override path"):
+        apply_pilot_overrides(config)
+
+
+def test_invalid_stage_is_rejected():
+    """Only the explicitly supported configuration stages are accepted."""
+    with pytest.raises(ConfigError, match="stage"):
+        load_config(stage="production")

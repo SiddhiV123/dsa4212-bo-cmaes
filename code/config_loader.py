@@ -98,10 +98,52 @@ def resolve_cma_variants(config: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def apply_pilot_overrides(config: dict[str, Any]) -> dict[str, Any]:
+    """Apply configured pilot overrides to a copy of the configuration."""
+    resolved = deepcopy(config)
+    pilot = resolved.get("pilot")
+
+    if not isinstance(pilot, dict):
+        raise ConfigError("Pilot stage requested, but 'pilot' is missing.")
+
+    overrides = pilot.get("overrides", {})
+    if not isinstance(overrides, dict):
+        raise ConfigError("'pilot.overrides' must be a mapping.")
+
+    for dotted_path, value in overrides.items():
+        if not isinstance(dotted_path, str) or not dotted_path:
+            raise ConfigError("Each pilot override must have a non-empty path.")
+
+        parts = dotted_path.split(".")
+        target = resolved
+
+        for part in parts[:-1]:
+            if not isinstance(target, dict) or part not in target:
+                raise ConfigError(
+                    f"Invalid pilot override path: {dotted_path}"
+                )
+            target = target[part]
+
+        leaf = parts[-1]
+        if not isinstance(target, dict) or leaf not in target:
+            raise ConfigError(
+                f"Invalid pilot override path: {dotted_path}"
+            )
+
+        target[leaf] = deepcopy(value)
+
+    return resolved
+
+
 def load_config(
     config_path: str | Path | None = None,
+    *,
+    stage: str = "main",
 ) -> dict[str, Any]:
-    """Load, structurally validate, and resolve the experiment YAML."""
+    """Load configuration for the main experiment or pilot stage."""
+    if stage not in {"main", "pilot"}:
+        raise ConfigError("stage must be either 'main' or 'pilot'.")
+
     path = Path(config_path) if config_path is not None else DEFAULT_CONFIG_PATH
 
     if not path.is_file():
@@ -114,4 +156,8 @@ def load_config(
         raise ConfigError(f"Could not parse YAML file: {path}") from exc
 
     validate_config_structure(config)
+
+    if stage == "pilot":
+        config = apply_pilot_overrides(config)
+
     return resolve_cma_variants(config)

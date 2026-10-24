@@ -196,6 +196,8 @@ evaluation:
   compare_methods_on_same_problem_instance: true
   derive_method_seeds_separately: true
   record_boundary_events: true
+  record_evaluations_used_per_run: true
+  record_budget_completed_flag: true
   report_wall_clock_time_separately: true
 
   checkpoints:
@@ -474,3 +476,28 @@ freeze:
   require_invariance_tolerance: true
   require_seed_policy: true
   require_garch_likelihood_validation_before_finance_scale_up: true
+
+
+# --------------------------------------------------
+# Pilot overrides (used ONLY when stage = "pilot")
+# --------------------------------------------------
+# Provisional values that let the pilot run while the main-run
+# settings above remain null. Pilot results are labelled as pilot
+# data, use their own seed stream, and are excluded from the
+# confirmatory analysis (decision log D29).
+
+pilot:
+  seed_offset: 1000000
+  replicates_per_condition: 5
+  conditions:
+    condition_numbers: [1, 10000]
+    orientations: ["aligned", "rotated"]
+    dimensions: [4]
+  methods: ["cma_es_full", "cma_es_diagonal", "isotropic_es", "uniform_random_search"]
+  overrides:
+    synthetic.ellipsoid.optimum.sub_box_fraction: 0.8
+    synthetic.domain.boundary_handling: "pycma_bound_transform"
+    methods.cma_es_common.boundary_handling: "pycma_bound_transform"
+    methods.cma_es_common.population_size: "pycma_default"
+    evaluation.budget_per_method: 500
+    evaluation.checkpoints.evaluation_counts: [50, 100, 200, 500]
