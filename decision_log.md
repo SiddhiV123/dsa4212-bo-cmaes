@@ -156,6 +156,17 @@ The initial step size is provisionally set to 0.3 times the search-box width.
 **Rationale:** Comparing methods by iterations rather than objective evaluations would not provide a fair comparison because one iteration can involve different numbers of evaluations across methods.
 
 **Status:** Accepted; implementation pending.
+**Provisional pilot budget and selection rule:**
+
+The formal pilot will use a provisional maximum budget of 2,000 objective evaluations per method, with checkpoints at 90, 250, 500, 1,000 and 2,000 evaluations. At \(d=4\), this corresponds to 500 evaluations per dimension.
+
+The original 500-evaluation ceiling was a pragmatic choice rather than a value derived from the literature. The reviewed literature provides context for reconsidering this ceiling, including the dependence of suitable evaluation budgets on the optimisation problem and the need to allow sufficient evaluations for covariance adaptation in CMA-ES. The proposed 2,000-evaluation ceiling is a provisional design choice to be assessed through the formal pilot, not a universally established budget recommendation.
+
+The 90-evaluation checkpoint corresponds to \(10d+50\), the budget used by Santoni et al. (2024) for their structural-mechanics applications. This is a domain-specific precedent rather than a universal recommendation. Hansen's CMA-ES guidance provides additional context for considering the evaluations required for covariance adaptation.
+
+**Pre-stated selection rule:** Before analysing the formal pilot, freeze the log-regret floor and the procedure for determining whether a replicate has reached it. Select the smallest checkpoint at which full CMA-ES on the rotated \(\kappa=10^4\), \(d=4\) ellipsoid reaches the floor in at least 80% of pilot replicates. If no checkpoint meets this criterion, select 2,000 evaluations.
+
+At the selected checkpoint, inspect diagonal CMA-ES and the other comparison methods to assess whether the budget supports the planned comparisons. Record the final choice and rationale before starting confirmatory main runs. Exclude pilot runs from confirmatory analysis.
 
 ### D13. Pair methods on the same problem instances
 
@@ -417,7 +428,7 @@ The following settings remain open and should be resolved in the order needed fo
 | GARCH | Verify variance-bound compatibility with `arch` | Finance optimisation |
 | Finance optimisation | Per-method budget, seed policy, CMA-ES initial-point rule, reference multi-start settings | Main finance runs |
 | Finance analysis | Positive log-gap epsilon and moving-block bootstrap settings | Final finance analysis |
-
+Run the formal pilot, apply the pre-stated budget-selection rule, and freeze the main-study budget and checkpoint schedule.
 ---
 
 ## 10. Change-Control Rule
