@@ -407,6 +407,24 @@ The freeze checklist includes:
 
 **Status:** Accepted; freeze conditions not yet satisfied.
 
+### D30. Optimiser settings and tuning policy
+
+**Decision:** No hyperparameter tuning is performed for any method. Each method uses published default settings or settings fixed in this log before the pilot. Conclusions are therefore conditional on default configurations.
+
+- **CMA-ES variants.** All three variants use the default strategy parameters of pycma 4.5.0 (Hansen, Akimoto & Baudis, 2019), the reference Python implementation maintained by the author of CMA-ES. In his tutorial, Hansen describes the default parameters as a robust setting applicable to a wide range of functions and does not recommend changing them, apart from increasing the population size or, on noisy functions, decreasing $\alpha_{\mathrm{cov}}$ (Hansen, 2016, p. 32); neither applies here. The population size is the default $\lambda = 4 + \lfloor 3\ln n \rfloor$ (Hansen, 2016, Table 1, Eq. 48), giving $\lambda = 8$ at $d = 4$. The initial point and step size, which Hansen treats as problem dependent, follow his rule of a uniform start in $[a,b]^n$ with $\sigma_0 = 0.3\,(b-a)$ (Hansen, 2016, Appendix A, Fig. 6, footnote 1), giving $\sigma_0 = 3$ for the box $[-5, 5]^4$. The variants differ only in their covariance option (D8, D9).¹
+- **Uniform random search** samples the same box and has no settings to tune.
+- **BO** uses the ARD Matérn 5/2 kernel (Snoek et al., 2012, Sec. 3.1), a standard default supported by recent benchmarking (Le Riche & Picheny, 2021), and the expected improvement acquisition function (Jones et al., 1998). GP hyperparameters are fitted by maximising the marginal likelihood, i.e. type-II maximum likelihood (Rasmussen & Williams, 2006, Sec. 5.4.1, Eq. 5.8); this is part of the method, not tuning. Because the marginal likelihood can have multiple local optima, the fit uses several random restarts and keeps the best (Rasmussen & Williams, 2006, p. 115). BO's algorithm settings (initial design size, number of restarts, fixed jitter) are chosen once from published guidance, including a small initial design (Le Riche & Picheny, 2021), and a numerical-stability smoke test, then recorded here and frozen.
+
+**What the pilot may change:** only (a) the budget, floor and invariance tolerance, by their pre-stated rules (D12, D15, D18); and (b) a numerical or implementation setting, and only if a failure trigger occurs: the budget is not enforced exactly; a test fails; the objective returns non-finite values; a run has `stop_category = "other"`; or, for BO, GP fitting or acquisition optimisation fails. Pilot regret values are never used to change $\sigma_0$, population size, kernel or acquisition function.
+
+**Exploratory robustness (optional, pre-declared):** the primary DiD may also be reported at $\sigma_0 \in \lbrace 0.15, 0.5 \rbrace \times$ box width.
+
+**Alternatives:** per-method tuning on each problem (e.g. grid search or hyperparameter optimisation). Bartz-Beielstein et al. (2020, Sec. 7.5) note that tuning every method on every problem compares methods at peak performance, and that comparing tuned with untuned methods is unfair. This study does not tune per problem, for two reasons: (i) the research question concerns a mechanism (covariance learning under rotation), and tuning each variant on the test ellipsoids would introduce parameter differences into that comparison and tune on the test instances themselves; (ii) the CMA-ES defaults are themselves designed as a robust setting across a wide range of functions (Hansen, 2016, p. 32), which corresponds to the option Bartz-Beielstein et al. describe of using defaults obtained from tuning over a broad problem set. Equal treatment is preserved because no method receives problem-specific tuning. As Bartz-Beielstein et al. note, such a comparison deliberately abstains from setting good parameters for specific problems; this is stated as a limitation, especially for BO, which is typically more sensitive to its settings.
+
+**Status:** Accepted.
+
+¹ pycma 4.5.0's defaults match the tutorial's Table 1 for the population size, recombination weights and covariance learning rates ($\lambda = 8$, $\mu = 4$, $\mu_{\mathrm{eff}} = 2.60$, $c_c = 0.500$, $c_1 = 0.0652$, $c_\mu = 0.0640$ at $d = 4$). Its step-size constants differ slightly ($c_\sigma = 0.479$ and $d_\sigma = 1.479$, versus $0.397$ and $1.397$ from Table 1); they are identical across all three variants, so they cannot bias the diagonal-versus-full comparison. Values verified on the installed version.
+
 ---
 
 ## 9. Outstanding Decisions
