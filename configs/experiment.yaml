@@ -499,5 +499,5 @@ pilot:
     synthetic.domain.boundary_handling: "pycma_bound_transform"
     methods.cma_es_common.boundary_handling: "pycma_bound_transform"
     methods.cma_es_common.population_size: "pycma_default"
-    evaluation.budget_per_method: 500
-    evaluation.checkpoints.evaluation_counts: [50, 100, 200, 500]
+    evaluation.budget_per_method: 2000
+    evaluation.checkpoints.evaluation_counts: [90, 250, 500, 1000, 2000]
