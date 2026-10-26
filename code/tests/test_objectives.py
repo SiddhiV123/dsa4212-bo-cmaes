@@ -205,3 +205,12 @@ def test_instance_rejects_bad_arguments():
         make_ellipsoid_instance(4, 1e2, "diagonal", problem_seed=0)
     with pytest.raises(ValueError):
         make_ellipsoid_instance(4, 1e2, "aligned", problem_seed=0, sub_box_fraction=0)
+
+def test_matches_pycma_elli():
+    """External cross-check of D3 against pycma's reference ellipsoid."""
+    cma = pytest.importorskip("cma")
+    X = np.random.default_rng(20).uniform(-5, 5, size=(20, 4))
+    for kappa in KAPPAS:
+        ours = ellipsoid(X, kappa, np.eye(4), np.zeros(4))
+        ref = np.array([cma.ff.elli(x, cond=kappa) for x in X])
+        assert np.allclose(ours, ref, rtol=1e-6)

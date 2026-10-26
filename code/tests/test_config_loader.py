@@ -1,4 +1,3 @@
-
 """Tests for loading and resolving the experiment configuration."""
 
 from copy import deepcopy
@@ -160,7 +159,7 @@ def test_pilot_overrides_apply_without_changing_main_config():
     assert main["evaluation"]["budget_per_method"] is None
 
     # The pilot receives the configured provisional budget.
-    assert pilot["evaluation"]["budget_per_method"] == 500
+    assert pilot["evaluation"]["budget_per_method"] == 2000
 
     # The pilot uses the configured optimum sub-box fraction.
     assert (
@@ -186,3 +185,72 @@ def test_invalid_stage_is_rejected():
     """Only the explicitly supported configuration stages are accepted."""
     with pytest.raises(ConfigError, match="stage"):
         load_config(stage="production")
+
+
+# ---------------------------------------------------------------------------
+# Drift, required options and readiness checks (decision log D9, D28)
+# ---------------------------------------------------------------------------
+
+import yaml
+
+from config_loader import (
+    DEFAULT_CONFIG_PATH,
+    apply_pilot_overrides,
+    check_cma_consistency,
+    check_ready,
+)
+
+
+@pytest.fixture
+def raw():
+    with DEFAULT_CONFIG_PATH.open(encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
+
+@pytest.mark.parametrize("variant", ["cma_es_full", "cma_es_diagonal", "isotropic_es"])
+def test_every_common_setting_reaches_every_variant(variant):
+    config = load_config(stage="pilot")
+    common = config["methods"]["cma_es_common"]
+    for key, value in common.items():
+        assert config["methods"][variant][key] == value, key
+
+
+def test_variant_overriding_shared_setting_is_caught(raw):
+    raw["methods"]["cma_es_diagonal"]["initial_step_size_fraction_of_box_width"] = 0.5
+    with pytest.raises(ConfigError, match="differs from cma_es_common"):
+        check_cma_consistency(resolve_cma_variants(raw))
+
+
+def test_missing_required_variant_option_is_caught(raw):
+    raw["methods"]["isotropic_es"]["options"] = {}
+    with pytest.raises(ConfigError, match="CMA_on"):
+        check_cma_consistency(resolve_cma_variants(raw))
+
+
+def test_main_stage_not_ready_while_settings_are_null():
+    config = load_config(stage="main")
+    with pytest.raises(ConfigError, match="not ready"):
+        check_ready(config, "main")
+
+
+def test_pilot_checkpoints_end_at_budget():
+    config = load_config(stage="pilot")
+    cps = config["evaluation"]["checkpoints"]["evaluation_counts"]
+    assert cps[-1] == config["evaluation"]["budget_per_method"]
+
+
+@pytest.mark.parametrize(
+    "path, bad",
+    [
+        ("synthetic.domain.upper_bound", -10.0),
+        ("synthetic.ellipsoid.optimum.sub_box_fraction", 1.5),
+        ("evaluation.budget_per_method", -5),
+        ("evaluation.checkpoints.evaluation_counts", [90, 250, 500]),
+        ("synthetic.ellipsoid.condition_numbers", [0.5, 100]),
+    ],
+)
+def test_invalid_values_rejected(raw, path, bad):
+    raw["pilot"]["overrides"][path] = bad
+    config = resolve_cma_variants(apply_pilot_overrides(raw))
+    with pytest.raises(ConfigError, match="Invalid configuration"):
+        check_ready(config, "pilot")
