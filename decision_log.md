@@ -1,466 +1,145 @@
-# Decision Log — DSA4212 Project
+# When Does Geometry-Aware Search Pay Off?
 
-**Project:** When Does Geometry-Aware Search Pay Off?  
-**Proposal version:** v9, 22 October 2026  
-**Last updated:** 24 October 2026  
-**Status:** Implementation and pilot preparation
+**DSA4212 Individual Project**  
+*Bayesian optimisation versus evolution strategies on aligned and rotated ill-conditioned problems*
 
-This document records the main experimental design decisions, their rationale, alternatives considered, and the settings that remain unresolved. Decisions marked *provisional* must be reviewed after the pilot and frozen before the main experiments.
+## Project Overview
 
----
+This project investigates when Bayesian optimisation (BO) and CMA-ES succeed or fail on problems whose difficulty comes from geometry: ill-conditioning and rotation. It tests one explanation for a difference in their behaviour:
 
-## 1. Project Scope and Priorities
+> Methods whose internal model is **axis-aligned** (BO with an ARD kernel, diagonal CMA-ES) should lose performance when an ill-conditioned problem is rotated. A method that can represent **any orientation** (full CMA-ES) should not, once it has had enough evaluations to adapt.
 
-### D1. Use the ellipsoid study as the primary contribution
+The study uses rotated ellipsoids, where conditioning and orientation can be varied independently while the optimum and Hessian are known exactly. A planned GARCH(1,1) application was removed from scope (decision log D31).
 
-**Decision:** The primary study compares Bayesian optimisation (BO), full-covariance CMA-ES, diagonal CMA-ES, isotropic evolution strategy (ES), and uniform random search on controlled synthetic objectives.
+All design decisions, alternatives and sources are recorded in [`decision_log.md`](decision_log.md).
 
-**Rationale:** The ellipsoid provides a known optimum and allows conditioning and orientation to be varied independently. This makes it possible to study how the geometry of an objective interacts with an optimiser's search strategy.
+## Research Questions
 
-The GARCH(1,1) finance application is secondary and will be reduced or cut first if implementation time becomes limited.
+**Primary:** Under matched evaluation budgets at $d=4$ and $\kappa=10^4$, does rotation hurt diagonal CMA-ES and BO with an ARD kernel more than it hurts full CMA-ES?
 
-**Status:** Accepted.
+**Secondary (pre-registered):**
 
-### D2. Keep the finance application focused on GARCH(1,1) calibration
+- Does full CMA-ES's rotation penalty shrink as the budget grows, while that of the axis-aligned methods does not?
+- How does the rotation penalty change with conditioning?
+- Across rotated instances, does the Jacobi-scaled condition number $\kappa_J$ predict the gap between diagonal and full CMA-ES?
 
-**Decision:** Use Gaussian quasi-maximum likelihood estimation (QMLE) on rolling windows of WTI returns rather than the original moving-average trading-strategy application.
+## Methods
 
-**Alternatives:** Moving-average crossover strategy with a Sharpe-ratio objective and a grid-search reference.
-
-**Rationale:** The moving-average problem has about two integer parameters, so an exhaustive grid is exact and instant, and it has no conditioning to study. GARCH estimation provides a continuous, constrained optimisation problem with potentially challenging curvature along the ARCH/GARCH parameter ridge. This is more directly related to the project's interest in conditioning and optimiser geometry.
-
-The finance application is a model-calibration study, not a trading backtest, and makes no claim about trading profitability.
-
-**Status:** Accepted.
-
----
-
-## 2. Synthetic Objective Design
-
-### D3. Use a four-dimensional ellipsoid as the primary benchmark
-
-**Decision:** Set the primary dimension to $d=4$, with condition numbers $\kappa \in \lbrace 1, 100, 10000 \rbrace$. Compare aligned and randomly rotated versions of each condition.
-
-The objective is
-
-$$
-f(x)=\sum_{i=1}^{d}
-\kappa^{(i-1)/(d-1)}z_i^2,
-\qquad z=R(x-x_{\mathrm{opt}}).
-$$
-
-Here, $R=I$ for aligned instances and $R$ is an orthogonal matrix for rotated instances. The known optimum is $x_{\mathrm{opt}}$, with objective value zero.
-
-**Rationale:** This design varies conditioning and orientation while keeping the objective smooth, unimodal, and analytically understood. The $\kappa=1$ case acts as an orientation-invariance control because the objective is spherical regardless of the orthogonal rotation.
-
-**Status:** Accepted.
-
-### D4. Generate rotations using random orthogonal matrices
-
-**Decision:** Generate rotated instances using QR decomposition with sign correction. Save the resulting rotation matrix for each problem instance.
-
-**Rationale:** The rotation changes the orientation of the principal axes without changing the eigenvalues of the Hessian. Saving the matrix ensures that each instance can be reproduced exactly.
-
-**Status:** Accepted; implementation and tests pending.
-
-### D5. Randomise the optimum independently of optimiser initialisation
-
-**Decision:** Sample the optimum uniformly within a configured sub-box of the search domain. Optimiser initial points must be generated independently of the optimum.
-
-The sub-box fraction remains to be determined.
-
-**Rationale:** A fixed optimum at the origin could unintentionally favour methods whose initialisation is centred or whose sampling scheme is symmetric around the origin. Independent randomisation reduces this source of bias.
-
-**Status:** Design accepted; sub-box fraction provisional.
-
-### D6. Use Sphere for supporting validation; cut other extensions
-
-**Decision:** Retain Sphere objectives in dimensions $d \in \lbrace 2, 4, 10 \rbrace$ for unit tests, method-interface checks, and sanity checks.
-
-The following are not run in the current scope: Rastrigin, the GARCH penalty arm, the noise study, and the optional $d=10$ ellipsoid run.
-
-**Rationale:** Sphere is useful for validating objective evaluation, optimiser interfaces, and basic behaviour before running the main experiments. Rastrigin would add a multimodal study that is not essential to the primary rotation-and-conditioning question. The penalty arm, noise study, and $d=10$ ellipsoid run are optional extensions that are cut before the core study is touched.
-
-**Status:** Accepted. Any reinstatement requires the core study to be complete and a recorded change.
-
----
-
-## 3. Optimisation Methods
-
-### D7. Compare five optimisation methods
-
-**Decision:** Include the following methods:
-
-1. Bayesian optimisation with an ARD Matérn 5/2 Gaussian process and expected improvement.
-2. Full-covariance CMA-ES.
-3. Diagonal CMA-ES.
-4. Isotropic ES, implemented as CMA-ES with covariance adaptation disabled.
-5. Uniform random search.
-
-Every method reports its best *evaluated* point. BO may use its surrogate to choose the next evaluation, but its reported solution must always be a point that was actually evaluated.
-
-**Alternatives:** A fixed Gaussian random-search arm centred on the CMA-ES starting point, proposed earlier and dropped because it had no published precedent.
-
-**Rationale:** Full and diagonal CMA-ES provide the central comparison for understanding the role of covariance adaptation. Isotropic ES helps distinguish covariance learning from step-size adaptation, while uniform random search provides a baseline without objective-guided candidate selection. BO adds a surrogate-based optimisation approach. A common recommendation rule keeps the comparison about optimisation rather than about how each method reports its answer.
-
-**Status:** Accepted; implementation details for BO and CMA-ES require smoke testing.
-
-### D8. Use separable diagonal CMA-ES
-
-**Decision:** Use a diagonal-only CMA-ES variant, rather than a method such as dd-CMA that retains a full covariance representation.
-
-**Alternatives:** Diagonal-decoding CMA-ES (dd-CMA).
-
-**Rationale:** The objective is to test how restricting covariance adaptation affects performance under rotation. A method that retains a full covariance representation would not isolate this distinction as directly.
-
-**Status:** Accepted; installed library options must be verified.
-
-### D9. Use common settings across CMA-ES variants
-
-**Decision:** Define shared CMA-ES settings in `cma_es_common` and merge them into the full, diagonal, and isotropic variants through the configuration loader.
-
-Use a common initial-point policy, a common provisional initial step-size rule, and matched evaluation budgets.
-
-**Rationale:** Differences in performance should primarily reflect the covariance-adaptation mechanism rather than unrelated initialisation or budget differences.
-
-The `inherits` field in the YAML file is a project convention, not native YAML inheritance. The implementation must explicitly merge the common settings and test the resolved configurations.
-
-**Status:** Design accepted; loader and merge test pending.
-
-### D10. Initialise optimisers without information about the optimum
-
-**Decision:** Draw CMA-ES initial points uniformly from the search box, independently of the optimum. Use the same initial point across the three CMA-ES variants within a matched problem instance.
-
-The initial step size is provisionally set to 0.3 times the search-box width.
-
-**Rationale:** This supports paired comparisons and avoids giving one method privileged knowledge of the optimum. The initial step-size rule will be checked during the pilot.
-
-**Status:** Initialisation policy accepted; numerical settings provisional.
-
-### D11. Handle early termination transparently
-
-**Decision:** Attempt to run methods to the prescribed evaluation budget. If a CMA-ES run terminates early despite the configured stopping policy, preserve its best evaluated point, flag the run as incomplete, and report the actual evaluation count. Incomplete runs are retained in the analysis, and counts are reported by method and condition.
-
-**Rationale:** An early-terminated run must not be presented as if it consumed the full budget. On a noise-free objective, early termination often reflects convergence, so excluding these runs would bias results against the fastest-converging methods. Keeping the run and its status visible avoids silently discarding inconvenient outcomes.
-
-**Status:** Accepted; stopping options must be verified against the installed `cma` version.
-
----
-
-## 4. Evaluation Budget and Reproducibility
-
-### D12. Enforce budgets at the objective-evaluation level
-
-**Decision:** Route every objective evaluation through a runner-level counting wrapper. Count initial-design evaluations for BO and truncate a final CMA-ES batch when necessary to respect the budget exactly.
-
-**Rationale:** Comparing methods by iterations rather than objective evaluations would not provide a fair comparison because one iteration can involve different numbers of evaluations across methods.
-
-**Status:** Accepted; implementation pending.
-**Provisional pilot budget and selection rule:**
-
-The formal pilot will use a provisional maximum budget of 2,000 objective evaluations per method, with checkpoints at 90, 250, 500, 1,000 and 2,000 evaluations. At \(d=4\), this corresponds to 500 evaluations per dimension.
-
-The original 500-evaluation ceiling was a pragmatic choice rather than a value derived from the literature. The reviewed literature provides context for reconsidering this ceiling, including the dependence of suitable evaluation budgets on the optimisation problem and the need to allow sufficient evaluations for covariance adaptation in CMA-ES. The proposed 2,000-evaluation ceiling is a provisional design choice to be assessed through the formal pilot, not a universally established budget recommendation.
-
-The 90-evaluation checkpoint corresponds to \(10d+50\), the budget used by Santoni et al. (2024) for their structural-mechanics applications. This is a domain-specific precedent rather than a universal recommendation. Hansen's CMA-ES guidance provides additional context for considering the evaluations required for covariance adaptation.
-
-**Pre-stated selection rule:** Before analysing the formal pilot, freeze the log-regret floor and the procedure for determining whether a replicate has reached it. Select the smallest checkpoint at which full CMA-ES on the rotated \(\kappa=10^4\), \(d=4\) ellipsoid reaches the floor in at least 80% of pilot replicates. If no checkpoint meets this criterion, select 2,000 evaluations.
-
-At the selected checkpoint, inspect diagonal CMA-ES and the other comparison methods to assess whether the budget supports the planned comparisons. Record the final choice and rationale before starting confirmatory main runs. Exclude pilot runs from confirmatory analysis.
-
-### D13. Pair methods on the same problem instances
-
-**Decision:** Use a fixed base seed of `4212`. Derive each problem seed, which determines $x_{\mathrm{opt}}$ and $R$, from the condition and replicate index only, so that all methods within a replicate face the same problem instance. Derive method-specific random seeds separately. Save the problem instances, seeds, software versions, and actual evaluation counts.
-
-The provisional target is 20 replicates per condition.
-
-**Rationale:** Pairing reduces variation attributable to differences between randomly generated problems. Separate method seeds preserve reproducibility without forcing every method to consume identical random-number streams.
-
-**Status:** Design accepted; replicate count provisional.
-
-### D14. Record evaluation-level diagnostics
-
-**Decision:** Record candidate locations, objective values, best-so-far values, evaluation numbers, boundary events, method identifiers, and seeds.
-
-Save CMA-ES covariance snapshots and BO hyperparameter diagnostics, including ARD lengthscales.
-
-**Rationale:** Final regret alone describes performance but does not explain how the optimisers behave. These diagnostics support the project's mechanism analysis.
-
-**Status:** Accepted; logging format and snapshot frequency pending implementation.
-
----
-
-## 5. Primary Analysis
-
-### D15. Use final simple regret as the primary outcome
-
-**Decision:** Define final simple regret as
-
-$$
-r=f(x_{\mathrm{best}})-f(x_{\mathrm{opt}}),
-$$
-
-where $x_{\mathrm{best}}$ is the best evaluated point (D7). Analyse $\log_{10}(r)$ using a small positive floor selected during the control pilot.
-
-**Rationale:** Simple regret measures the quality of the best solution found within the evaluation budget. A logarithmic scale helps compare performance across objectives and conditions with substantially different regret magnitudes.
-
-The floor must be chosen before the main analysis and applied consistently.
-
-**Status:** Outcome accepted; floor pending pilot.
-
-### D16. Use a difference-in-differences comparison for the primary hypothesis
-
-**Decision:** At $d=4$ and $\kappa=10000$, compare diagonal and full CMA-ES using
-
-$$
-\begin{aligned}
-\Delta_{\mathrm{DiD}}
-={}&(\bar L_{\mathrm{rot,diag}}
--\bar L_{\mathrm{align,diag}})\\
-&-(\bar L_{\mathrm{rot,full}}
--\bar L_{\mathrm{align,full}}),
-\end{aligned}
-$$
-
-where $L$ denotes log regret.
-
-**Rationale:** This measures whether rotation increases log regret more for diagonal CMA-ES than for full-covariance CMA-ES, while accounting for the aligned-condition performance of each method.
-
-A positive value indicates a larger rotation penalty for diagonal CMA-ES.
-
-**Status:** Accepted.
-
-### D17. Use paired uncertainty estimates and keep secondary comparisons exploratory
-
-**Decision:** Pair observations by problem instance and report bootstrap confidence intervals. The bootstrap replicate count remains to be finalised.
-
-Other condition numbers, BO comparisons, intermediate checkpoints, and evaluations-to-target are exploratory analyses.
-
-**Rationale:** The primary comparison should remain clear and interpretable. Exploratory analyses can provide supporting evidence without being presented as equally central hypotheses.
-
-**Status:** Analysis approach accepted; bootstrap settings pending.
-
-### D18. Use the $\kappa=1$ control to assess orientation invariance
-
-**Decision:** Estimate an invariance tolerance from the observed aligned-versus-rotated variation at $\kappa=1$, by method, during the control pilot.
-
-**Rationale:** When $\kappa=1$, orthogonal rotation should not change the mathematical objective. Small numerical or sampling-related differences should be interpreted against a pre-specified tolerance rather than an arbitrary threshold.
-
-**Status:** Concept accepted; tolerance pending pilot.
-
-### D19. Use mechanism diagnostics to interpret results
-
-**Decision:** Examine the effective condition number
-
-$$
-\kappa_{\mathrm{eff}}
-=\mathrm{cond}(C^{1/2}HC^{1/2}),
-$$
-
-where $C$ is the learned CMA-ES covariance and $H$ is the objective Hessian. Also examine BO ARD lengthscales relative to curvature in aligned cases.
-
-**Rationale:** These diagnostics help assess whether the learned search geometry is related to the objective geometry. They support interpretation but do not, by themselves, establish causation.
-
-**Status:** Accepted; implementation and validation pending.
-
----
-
-## 6. Finance Application: Data and Preprocessing
-
-### D20. Use WTI spot prices from FRED
-
-**Decision:** Use the FRED series `DCOILWTICO`, originally sourced from the U.S. Energy Information Administration. Store a frozen copy at `data/DCOILWTICO.csv` and record its retrieval date.
-
-Source: https://fred.stlouisfed.org/series/DCOILWTICO
-
-**Rationale:** A frozen dataset prevents later source revisions from silently changing the experiment.
-
-**Status:** Source selected; download and freeze pending.
-
-### D21. Define returns and handle non-positive prices explicitly
-
-**Decision:** Calculate percentage log returns as
-
-$$
-r_t=100\log\left(\frac{P_t}{P_{t-1}}\right),
-$$
-
-then demean returns using the estimation-window mean. Drop missing observations according to the configured preprocessing policy.
-
-Exclude any estimation window containing the non-positive price observation dated 20 April 2020, and record the exclusion.
-
-**Rationale:** Log returns are undefined when a price is non-positive. Explicitly excluding affected windows avoids invalid calculations and makes the data-handling decision auditable.
-
-**Status:** Accepted; data validation pending.
-
----
-
-## 7. GARCH(1,1) Model and Analysis
-
-### D22. Use Gaussian QMLE with a constrained reparameterisation
-
-**Decision:** Estimate a GARCH(1,1) model using Gaussian quasi-maximum likelihood. Optimise over $(\log\omega, p, s)$, with
-
-$$
-p=\alpha+\beta,\qquad
-s=\frac{\alpha}{\alpha+\beta},
-$$
-
-and recover the original parameters using
-
-$$
-\alpha=ps,\qquad
-\beta=p(1-s),\qquad
-\omega=e^{\log\omega}.
-$$
-
-Use $0<p_{\min}<p_{\max}<1$ and $s\in[0,1]$. Determine the numerical bounds for $p$ and $\log\omega$ using documented rules and freeze them before the main finance runs.
-
-**Rationale:** This parameterisation supports nonnegative ARCH and GARCH coefficients and enforces the stationarity restriction $\alpha+\beta<1$. Allowing $s=0$ or $s=1$ permits one of the two coefficients to be zero.
-
-**Status:** Parameterisation accepted; numerical bounds pending validation.
-
-### D23. Use rolling estimation windows
-
-**Decision:** Use 750 trading days per estimation window, moving forward by 250 trading days.
-
-**Rationale:** Rolling windows create multiple calibration instances and allow the analysis to examine whether optimisation behaviour varies with the curvature of the fitted likelihood.
-
-**Status:** Accepted; eligible windows to be determined after data preprocessing.
-
-### D24. Validate the custom likelihood against `arch`
-
-**Decision:** Compare the custom GARCH likelihood with the `arch` package on at least three estimation windows before scaling up the finance experiments.
-
-Use the same initial-variance convention in both calculations: override `arch`'s default backcast (an exponentially weighted average of early squared residuals) with the window sample variance. Verify that the variance recursion agrees before comparing negative log-likelihood values.
-
-The custom implementation must document and test the variance-bound rule used in the comparison.
-
-**Rationale:** Differences in initialisation or variance bounds can produce different likelihood values even when the model equations are otherwise equivalent. These differences must be investigated before attributing discrepancies to optimisation performance.
-
-**Status:** Required validation; not yet completed.
-
-### D25. Define likelihood gaps within each estimation window
-
-**Decision:** After all main runs are complete, define each window's best observed negative log-likelihood using the pre-specified set of completed main runs and the reference optimiser. Exclude pilot runs.
-
-For a method's estimate $\hat\theta$, define
-
-$$
-g=\mathrm{NLL}(\hat\theta)
--\mathrm{NLL}_{\mathrm{best,window}}.
-$$
-
-Analyse $\log_{10}(g+\epsilon)$, with a positive $\epsilon$ frozen before final analysis. Record signed gaps to the L-BFGS-B reference separately and flag cases where a method outperforms that reference.
-
-**Rationale:** A per-window reference avoids mixing likelihood levels across different data windows. A method that outperforms the reference optimiser should be flagged rather than hidden or automatically treated as an error.
-
-**Status:** Analysis definition accepted; epsilon and reference-optimiser settings pending.
-
-### D26. Test the relationship between conditioning and optimiser performance
-
-**Decision:** Use the Jacobi-scaled Hessian condition number $\kappa_J$ as the primary predictor, with the ordinary Hessian condition number $\kappa_H$ as a secondary predictor. Estimate the Hessian by finite differences at the reference optimum in the main arm's unit-box coordinates.
-
-Relate conditioning to the diagonal-minus-full CMA-ES log-gap using Spearman correlation and moving-block bootstrap uncertainty, with a block length of at least 3 windows.
-
-**Rationale:** $\kappa_J$ measures the conditioning that remains after Jacobi (diagonal) rescaling, which is within a factor of $d$ of the best possible diagonal rescaling. This is the conditioning a diagonal model cannot remove. Aligned problems have $\kappa_J=1$, however large $\kappa$ is, so $\kappa_J$, not $\kappa_H$, is the quantity H3 predicts will drive the diagonal-minus-full gap. Consecutive windows overlap by two-thirds, so a block bootstrap is needed to respect the dependence.
-
-Boundary optima will be handled with one-sided finite differences and flagged.
-
-**Status:** Analysis approach accepted; implementation pending.
-
-### D27. Keep the forecast analysis secondary and exploratory
-
-**Decision:** Evaluate 250 trading days of one-step-ahead variance forecasts using QLIKE, holding estimated parameters fixed. Use squared demeaned returns as the variance proxy and compare against the reference-optimum QLIKE.
-
-**Rationale:** This provides a secondary assessment of the practical implications of calibration differences without turning the project into a separate forecasting or trading study.
-
-**Status:** Planned secondary analysis.
-
----
-
-## 8. Configuration and Implementation Rules
-
-### D28. Keep unresolved values explicit
-
-**Decision:** Represent undecided settings as `null` in `configs/experiment.yaml` and mark provisional values clearly. The configuration loader must validate required settings before the relevant experiment can run.
-
-**Rationale:** Explicit unresolved settings are safer than silently substituting defaults or treating missing values as zero.
-
-**Status:** Accepted.
-
-### D29. Freeze the main experiment settings after the pilot
-
-**Decision:** Do not start the main runs until the pilot is complete, the configuration has been reviewed, and the required tests and validation checks have passed.
-
-The freeze checklist includes:
-
-- CMA-ES option and stopping-policy verification.
-- Common CMA-ES configuration merge tests.
-- Objective and rotation tests.
-- Evaluation-budget and boundary-handling policies.
-- Log-regret floor and invariance tolerance.
-- Seed policy.
-- GARCH likelihood validation before scaling up the finance study.
-
-**Rationale:** Pilot results may be used to select numerical settings, but those settings must be documented and frozen before the main analysis to avoid outcome-driven changes.
-
-**Status:** Accepted; freeze conditions not yet satisfied.
-
-### D30. Optimiser settings and tuning policy
-
-**Decision:** No hyperparameter tuning is performed for any method. Each method uses published default settings or settings fixed in this log before the pilot. Conclusions are therefore conditional on default configurations.
-
-- **CMA-ES variants.** All three variants use the default strategy parameters of pycma 4.5.0 (Hansen, Akimoto & Baudis, 2019), the reference Python implementation maintained by the author of CMA-ES. In his tutorial, Hansen describes the default parameters as a robust setting applicable to a wide range of functions and does not recommend changing them, apart from increasing the population size or, on noisy functions, decreasing $\alpha_{\mathrm{cov}}$ (Hansen, 2016, p. 32); neither applies here. The population size is the default $\lambda = 4 + \lfloor 3\ln n \rfloor$ (Hansen, 2016, Table 1, Eq. 48), giving $\lambda = 8$ at $d = 4$. The initial point and step size, which Hansen treats as problem dependent, follow his rule of a uniform start in $[a,b]^n$ with $\sigma_0 = 0.3\,(b-a)$ (Hansen, 2016, Appendix A, Fig. 6, footnote 1), giving $\sigma_0 = 3$ for the box $[-5, 5]^4$. The variants differ only in their covariance option (D8, D9).¹
-- **Uniform random search** samples the same box and has no settings to tune.
-- **BO** uses the ARD Matérn 5/2 kernel (Snoek et al., 2012, Sec. 3.1), a standard default supported by recent benchmarking (Le Riche & Picheny, 2021), and the expected improvement acquisition function (Jones et al., 1998). GP hyperparameters are fitted by maximising the marginal likelihood, i.e. type-II maximum likelihood (Rasmussen & Williams, 2006, Sec. 5.4.1, Eq. 5.8); this is part of the method, not tuning. Because the marginal likelihood can have multiple local optima, the fit uses several random restarts and keeps the best (Rasmussen & Williams, 2006, p. 115). BO's algorithm settings (initial design size, number of restarts, fixed jitter) are chosen once from published guidance, including a small initial design (Le Riche & Picheny, 2021), and a numerical-stability smoke test, then recorded here and frozen.
-
-**What the pilot may change:** only (a) the budget, floor and invariance tolerance, by their pre-stated rules (D12, D15, D18); and (b) a numerical or implementation setting, and only if a failure trigger occurs: the budget is not enforced exactly; a test fails; the objective returns non-finite values; a run has `stop_category = "other"`; or, for BO, GP fitting or acquisition optimisation fails. Pilot regret values are never used to change $\sigma_0$, population size, kernel or acquisition function.
-
-**Exploratory robustness (optional, pre-declared):** the primary DiD may also be reported at $\sigma_0 \in \lbrace 0.15, 0.5 \rbrace \times$ box width.
-
-**Alternatives:** per-method tuning on each problem (e.g. grid search or hyperparameter optimisation). Bartz-Beielstein et al. (2020, Sec. 7.5) note that tuning every method on every problem compares methods at peak performance, and that comparing tuned with untuned methods is unfair. This study does not tune per problem, for two reasons: (i) the research question concerns a mechanism (covariance learning under rotation), and tuning each variant on the test ellipsoids would introduce parameter differences into that comparison and tune on the test instances themselves; (ii) the CMA-ES defaults are themselves designed as a robust setting across a wide range of functions (Hansen, 2016, p. 32), which corresponds to the option Bartz-Beielstein et al. describe of using defaults obtained from tuning over a broad problem set. Equal treatment is preserved because no method receives problem-specific tuning. As Bartz-Beielstein et al. note, such a comparison deliberately abstains from setting good parameters for specific problems; this is stated as a limitation, especially for BO, which is typically more sensitive to its settings.
-
-**Status:** Accepted.
-
-¹ pycma 4.5.0's defaults match the tutorial's Table 1 for the population size, recombination weights and covariance learning rates ($\lambda = 8$, $\mu = 4$, $\mu_{\mathrm{eff}} = 2.60$, $c_c = 0.500$, $c_1 = 0.0652$, $c_\mu = 0.0640$ at $d = 4$). Its step-size constants differ slightly ($c_\sigma = 0.479$ and $d_\sigma = 1.479$, versus $0.397$ and $1.397$ from Table 1); they are identical across all three variants, so they cannot bias the diagonal-versus-full comparison. Values verified on the installed version.
-
----
-
-## 9. Outstanding Decisions
-
-The following settings remain open and should be resolved in the order needed for implementation and pilot execution.
-
-| Item | Outstanding decision | Required before |
+| Method | Model of geometry | Implementation |
 |---|---|---|
-| Synthetic domain | Boundary-handling policy | Synthetic pilot |
-| Optimum placement | Sub-box fraction | Synthetic pilot |
-| CMA-ES | Installed version, population size, stopping options, covariance verification | Main synthetic runs |
-| CMA-ES | Initial step-size rule after pilot | Main synthetic runs |
-| Bayesian optimisation | Library, initial design, restart counts, fixed jitter | BO smoke test and main runs |
-| Evaluation budget | Evaluations per method and checkpoint schedule | Main synthetic runs |
-| Replicates | Confirm or revise the provisional target of 20 | Main synthetic runs |
-| Primary analysis | Log-regret floor, bootstrap replicate count, invariance tolerance | Main analysis |
-| Finance data | Download, validate, freeze CSV, record retrieval date and column names | GARCH validation |
-| GARCH | Numerical parameter bounds and initial-variance implementation | Likelihood validation |
-| GARCH | Verify variance-bound compatibility with `arch` | Finance optimisation |
-| Finance optimisation | Per-method budget, seed policy, CMA-ES initial-point rule, reference multi-start settings | Main finance runs |
-| Finance analysis | Positive log-gap epsilon and moving-block bootstrap settings | Final finance analysis |
-Run the formal pilot, apply the pre-stated budget-selection rule, and freeze the main-study budget and checkpoint schedule.
----
+| Full CMA-ES | Full covariance: scales and correlations | `pycma` 4.5.0, default settings |
+| Diagonal CMA-ES | Per-coordinate scales only | `pycma`, `CMA_diagonal=True` |
+| Isotropic ES | None (step size only) | `pycma`, `CMA_on=0` |
+| BO, ARD kernel | Per-coordinate lengthscales | Matérn 5/2 ARD Gaussian process, expected improvement |
+| BO, isotropic kernel | One lengthscale; rotation-invariant | Matérn 5/2 isotropic Gaussian process, expected improvement |
+| Uniform random search | None; ignores feedback | Independent uniform draws over the box |
 
-## 10. Change-Control Rule
+No method is tuned per problem. CMA-ES uses pycma defaults with $\sigma_0 = 0.3 \times$ box width and a uniform random start (Hansen, 2023); BO uses standard defaults with GP hyperparameters fitted by maximum marginal likelihood (decision log D30). The BO library and its numerical settings are fixed by a smoke test before the main runs.
 
-Any change to a decision above should be recorded here with:
+## Experimental Design
 
-- **Date**
-- **Decision changed**
-- **Previous setting**
-- **New setting**
-- **Reason**
-- **Whether the pilot or main runs had already started**
-- **Effect on comparability or interpretation**
+The objective is a rotated ellipsoid, based on BBOB functions f2 and f10:
 
-Changes made after the main runs begin must be documented explicitly. Runs should not be silently rerun or omitted because their results are inconvenient.
+$$
+f(x) = \sum_{i=1}^{d} \kappa^{(i-1)/(d-1)} z_i^2,
+\qquad z = R(x-x_{\mathrm{opt}}).
+$$
 
-The final report should describe the settings actually used, including justified deviations from the original plan.
+- **Orientation:** $R$ is the identity (aligned) or a Haar-random orthogonal matrix (rotated).
+- **Conditioning:** $\kappa \in \lbrace 1, 10, 10^2, 10^3, 10^4 \rbrace$ for the CMA-ES variants and uniform search; $\kappa \in \lbrace 1, 10^4 \rbrace$ for BO. At $\kappa=1$ the ellipsoid is a sphere, so rotation changes nothing; this is the control.
+- **Dimension:** $d=4$.
+- **Domain:** $[-5,5]^4$, with the optimum drawn uniformly in $[-4,4]^4$.
+- **Replicates:** 50 per condition. Every method faces the same instances; aligned and rotated instances share their optimum; the CMA-ES variants share their start point.
+- **Budget:** objective evaluations, enforced exactly by one counting wrapper. The main budget is selected from pilot checkpoints (90, 250, 500, 1,000, 2,000) by a rule fixed before the pilot (D12). BO runs to a lower ceiling and all methods are compared at shared checkpoints.
+- **Costs:** wall-clock time is reported separately from evaluations.
+
+The Sphere is used only for unit tests and validation.
+
+## Evaluation
+
+The primary outcome is the final simple regret of the best evaluated point, $r = f(\hat{x}) - f(x_{\mathrm{opt}})$, analysed as $\log_{10}$ regret with a floor of $10^{-8}$ (D15).
+
+Each primary comparison is a difference-in-differences against full CMA-ES at $d=4$, $\kappa=10^4$:
+
+$$
+\Delta_M =
+\left(\bar L_{\mathrm{rot},M} - \bar L_{\mathrm{align},M}\right)
+-
+\left(\bar L_{\mathrm{rot,full}} - \bar L_{\mathrm{align,full}}\right),
+$$
+
+where $L$ is log regret and $M$ is diagonal CMA-ES or ARD BO. A positive value means rotation hurts $M$ more than full CMA-ES. Replicates are paired by instance and uncertainty is reported with bootstrap confidence intervals.
+
+Mechanism diagnostics include $\kappa_{\mathrm{eff}} = \mathrm{cond}(\Sigma^{1/2} H \Sigma^{1/2})$ for CMA-ES (whether the search distribution matches the inverse Hessian) and the fitted ARD lengthscales for BO. Sensitivity analyses vary the floor ($10^{-6}$, $10^{-10}$) and, optionally, the initial step size and dimension.
+
+## Repository Structure
+
+```text
+dsa4212-bo-cmaes/
+├── code/
+│   ├── objectives.py        # ellipsoid, Sphere, rotations, Hessian diagnostics
+│   ├── config_loader.py     # loads and validates configs/experiment.yaml
+│   ├── runner.py            # exact-budget wrapper, seeds, CMA-ES variants, uniform search
+│   ├── run_pilot.py         # pilot experiment
+│   └── tests/               # unit and smoke tests
+├── configs/
+│   └── experiment.yaml
+├── report/                  # LaTeX source, bibliography and figures of the submitted report
+├── results/
+│   ├── raw/                 # evaluation-level logs and problem instances
+│   ├── processed/           # aggregated tables
+│   └── figures/             # generated figures
+├── readme.md
+├── authors.md
+├── decision_log.md
+└── requirements.txt
+```
+
+## Environment Setup
+
+Requires Python 3.12.4. From the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Package versions are pinned in `requirements.txt`.
+
+## Data
+
+No external data are used. All problem instances are generated from seeds recorded in `configs/experiment.yaml`; each instance (optimum, rotation matrix, $\kappa_H$, $\kappa_J$) is saved with the results.
+
+## Reproducing Results
+
+```bash
+# Unit tests
+python -m pytest code/tests
+
+# Pilot (CMA-ES variants and uniform search); writes to results/raw/pilot/<run_id>/
+python code/run_pilot.py
+python code/run_pilot.py --quick   # 10-second smoke test
+```
+
+The following entry points are planned and will be confirmed once implemented and tested:
+
+```bash
+python code/run_main.py --config configs/experiment.yaml   # main runs
+python code/make_figures.py                               # every table and figure in the report
+```
+
+## Reproducibility
+
+The project preserves the experiment configuration, software versions, problem and method seeds, every problem instance, per-evaluation logs (point, objective value, best-so-far, bound-repair flag), CMA-ES covariance snapshots, BO hyperparameter diagnostics, and the scripts that generate every table and figure. Main-run settings are frozen after the pilot; unexpected results are investigated rather than silently rerun or omitted.
+
+## Project Status
+
+**Current stage:** pilot preparation.
+
+Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, and the pilot script. Next: run the pilot and freeze the budget and floor, then implement BO.
+
+## Submission
+
+The final report is a PDF of at most 10 pages, including references and appendices, due on 13 November 2026.
