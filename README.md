@@ -1,225 +1,103 @@
 # When Does Geometry-Aware Search Pay Off?
 
 **DSA4212 Individual Project**  
-*A controlled comparison of Bayesian optimisation and CMA-ES, with a GARCH(1,1) calibration application*
+*Bayesian optimisation versus evolution strategies on aligned and rotated ill-conditioned problems*
 
 ## Project Overview
 
-This project studies how black-box optimisation methods behave when the number of objective evaluations is limited.
+This project investigates when Bayesian optimisation (BO) and CMA-ES succeed or fail on problems whose difficulty comes from geometry: ill-conditioning and rotation. It tests one explanation for a difference in their behaviour:
 
-The primary experiment compares Bayesian optimisation (BO) and CMA-ES variants on aligned and randomly rotated ellipsoids with different condition numbers. The goal is to understand how rotation and conditioning affect finite-budget performance, particularly when an optimiser can or cannot learn correlated search directions.
+> Methods whose internal model is **axis-aligned** (BO with an ARD kernel, diagonal CMA-ES) should lose performance when an ill-conditioned problem is rotated. A method that can represent **any orientation** (full CMA-ES) should not, once it has had enough evaluations to adapt.
 
-A secondary application investigates whether the same ideas help explain optimiser behaviour when calibrating a GARCH(1,1) volatility model on rolling windows of WTI returns.
+The study uses rotated ellipsoids, where conditioning and orientation can be varied independently while the optimum and Hessian are known exactly. A planned GARCH(1,1) application was removed from scope (decision log D31).
 
-The synthetic experiment is the main contribution. The finance application is secondary and will be reduced or omitted if necessary to complete the core experiment reliably.
+All design decisions, alternatives and sources are recorded in [`decision_log.md`](decision_log.md).
 
 ## Research Questions
 
-**Primary question:** Under matched evaluation budgets, how do BO, full-covariance CMA-ES, and diagonal CMA-ES compare across aligned and rotated ellipsoids, and how does covariance adaptation interact with rotation and conditioning?
+**Primary:** Under matched evaluation budgets at $d=4$ and $\kappa=10^4$, does rotation hurt diagonal CMA-ES and BO with an ARD kernel more than it hurts full CMA-ES?
 
-**Secondary question:** When fitting GARCH(1,1) models to rolling WTI return windows, does the conditioning of each likelihood surface help predict where full-covariance CMA-ES outperforms diagonal CMA-ES, and do optimisation differences affect out-of-sample volatility forecasts?
+**Secondary (pre-registered):**
 
-## Methods and Baselines
+- Does full CMA-ES's rotation penalty shrink as the budget grows, while that of the axis-aligned methods does not?
+- How does the rotation penalty change with conditioning?
+- Across rotated instances, does the Jacobi-scaled condition number $\kappa_J$ predict the gap between diagonal and full CMA-ES?
 
-Three adaptive methods are compared against two reference arms.
+## Methods
 
-### Adaptive methods
-
-| Method | Implementation | Role |
+| Method | Model of geometry | Implementation |
 |---|---|---|
-| BO with an ARD Gaussian process | Matérn 5/2 ARD kernel with expected improvement | Surrogate-based search that learns coordinate-wise structure |
-| Full-covariance CMA-ES | `pycma`, default full-covariance mode | Learns coordinate scales and correlations |
-| Diagonal CMA-ES | `pycma`, `CMA_diagonal=True` | Learns coordinate-wise scales but not correlations |
+| Full CMA-ES | Full covariance: scales and correlations | `pycma` 4.5.0, default settings |
+| Diagonal CMA-ES | Per-coordinate scales only | `pycma`, `CMA_diagonal=True` |
+| Isotropic ES | None (step size only) | `pycma`, `CMA_on=0` |
+| BO, ARD kernel | Per-coordinate lengthscales | Matérn 5/2 ARD Gaussian process, expected improvement |
+| BO, isotropic kernel | One lengthscale; rotation-invariant | Matérn 5/2 isotropic Gaussian process, expected improvement |
+| Uniform random search | None; ignores feedback | Independent uniform draws over the box |
 
-### Reference arms
-
-| Arm | Implementation | Role |
-|---|---|---|
-| Uniform random search | Independent uniform draws over the search box | Null baseline that does not use objective feedback to choose subsequent points |
-| Isotropic ES | `pycma`, `CMA_on=0` | Ablation baseline that adapts step size without learning covariance structure |
-
-All CMA-ES variants use the same `pycma` version, initialisation, population size, boundary handling, and stopping rules. The `CMA_diagonal` and `CMA_on` behaviours must be verified in the installed version before the main experiment: off-diagonal covariance entries must remain zero for the diagonal variant, and the covariance must remain the identity for the isotropic variant.
-
-Conclusions apply to the implementations and configurations tested, not to every BO or evolutionary optimisation method.
+No method is tuned per problem. CMA-ES uses pycma defaults with $\sigma_0 = 0.3 \times$ box width and a uniform random start (Hansen, 2023); BO uses standard defaults with GP hyperparameters fitted by maximum marginal likelihood (decision log D30). The BO library and its numerical settings are fixed by a smoke test before the main runs.
 
 ## Experimental Design
 
-### Main experiment: Ellipsoid
-
-The core experiment uses a four-dimensional ellipsoid:
+The objective is a rotated ellipsoid, based on BBOB functions f2 and f10:
 
 $$
 f(x) = \sum_{i=1}^{d} \kappa^{(i-1)/(d-1)} z_i^2,
 \qquad z = R(x-x_{\mathrm{opt}}).
 $$
 
-Here:
+- **Orientation:** $R$ is the identity (aligned) or a Haar-random orthogonal matrix (rotated).
+- **Conditioning:** $\kappa \in \lbrace 1, 10, 10^2, 10^3, 10^4 \rbrace$ for the CMA-ES variants and uniform search; $\kappa \in \lbrace 1, 10^4 \rbrace$ for BO. At $\kappa=1$ the ellipsoid is a sphere, so rotation changes nothing; this is the control.
+- **Dimension:** $d=4$.
+- **Domain:** $[-5,5]^4$, with the optimum drawn uniformly in $[-4,4]^4$.
+- **Replicates:** 50 per condition. Every method faces the same instances; aligned and rotated instances share their optimum; the CMA-ES variants share their start point.
+- **Budget:** objective evaluations, enforced exactly by one counting wrapper. The main budget is selected from pilot checkpoints (90, 250, 500, 1,000, 2,000) by a rule fixed before the pilot (D12). BO runs to a lower ceiling and all methods are compared at shared checkpoints.
+- **Costs:** wall-clock time is reported separately from evaluations.
 
-- $x$ is a candidate solution.
-- $x_{\mathrm{opt}}$ is the known optimum.
-- $R$ is an orthogonal rotation matrix.
-- $\kappa$ is the condition number.
+The Sphere is used only for unit tests and validation.
 
-The orientation matrix $R$ is either the identity matrix (aligned) or a randomly generated orthogonal matrix (rotated). A new optimum and rotation are drawn for each replicate and saved. Every method within a replicate faces the same problem instance.
+## Evaluation
 
-The experiment varies:
+The primary outcome is the final simple regret of the best evaluated point, $r = f(\hat{x}) - f(x_{\mathrm{opt}})$, analysed as $\log_{10}$ regret with a floor of $10^{-8}$ (D15).
 
-- **Condition number:** $\kappa \in \lbrace 1, 10^2, 10^4 \rbrace$.
-- **Orientation:** aligned and randomly rotated.
-- **Dimension:** $d=4$ for the main study.
-
-At $\kappa=1$, the ellipsoid is a Sphere, so aligned and rotated objectives are mathematically identical. This case provides a control for the rotation implementation and seed handling.
-
-### Validation: Sphere
-
-The Sphere is used for unit tests, method-interface checks, and sanity checks at dimensions $d \in \lbrace 2, 4, 10 \rbrace$.
-
-Rastrigin is not part of the planned experiments and is reserved for future work.
-
-### Initialisation and Fairness
-
-- Every method receives the same objective, search box, and total evaluation budget within each comparison.
-- The CMA-ES starting point $x_0$ is sampled uniformly from the search box, independently of $x_{\mathrm{opt}}$.
-- One initial step-size rule is used for all CMA-ES variants. The provisional candidate is $\sigma_0=0.3$ times the box width; the final rule will be frozen after the pilot.
-- BO initial-design evaluations count towards its evaluation budget.
-- The BO implementation, input scaling, initial-design policy, and other settings are frozen after the pilot.
-- Every objective call is counted. The final CMA-ES batch is truncated if necessary to meet the exact budget.
-- Problem seeds are shared across methods within a replicate; method seeds are derived separately.
-- Boundary handling is documented, and clipping or penalty events are logged for each evaluation.
-- Wall-clock time and optimiser overhead are reported separately from objective-evaluation counts.
-
-The evaluation budget, replicate count, numerical floor for log-regret, and other pilot-dependent settings are documented in `decision_log.md` and will be frozen after the pilot.
-
-## Evaluation and Statistical Plan
-
-The primary outcome is final simple regret:
+Each primary comparison is a difference-in-differences against full CMA-ES at $d=4$, $\kappa=10^4$:
 
 $$
-r = f(\hat{x}) - f(x_{\mathrm{opt}}),
-$$
-
-where $\hat{x}$ is the best point actually evaluated by the method. The primary analysis uses $\log_{10}$ regret with a numerical floor selected during the pilot.
-
-The primary comparison is a difference-in-differences in mean log-regret at $d=4$ and $\kappa=10^4$:
-
-$$
-\begin{aligned}
-\Delta ={}&
-\left(
-\overline{\log_{10} r}_{\mathrm{rotated,\,diagonal}}
+\Delta_M =
+\left(\bar L_{\mathrm{rot},M} - \bar L_{\mathrm{align},M}\right)
 -
-\overline{\log_{10} r}_{\mathrm{aligned,\,diagonal}}
-\right)\\
-&-
-\left(
-\overline{\log_{10} r}_{\mathrm{rotated,\,full}}
--
-\overline{\log_{10} r}_{\mathrm{aligned,\,full}}
-\right).
-\end{aligned}
+\left(\bar L_{\mathrm{rot,full}} - \bar L_{\mathrm{align,full}}\right),
 $$
 
-A positive value means that rotation increases the diagonal CMA-ES method's mean log-regret more than it increases full-covariance CMA-ES's mean log-regret.
+where $L$ is log regret and $M$ is diagonal CMA-ES or ARD BO. A positive value means rotation hurts $M$ more than full CMA-ES. Replicates are paired by instance and uncertainty is reported with bootstrap confidence intervals.
 
-Replicates are paired by problem instance, and uncertainty is reported using bootstrap confidence intervals. The target is approximately 20 replicates per ellipsoid condition, subject to pilot runtime.
-
-Other condition numbers, comparisons involving BO, intermediate checkpoints, and evaluations-to-target are exploratory. Mechanism diagnostics include the effective condition number of the learned CMA-ES covariance relative to the true Hessian, as well as the fitted BO ARD lengthscales. These diagnostics support interpretation but do not, by themselves, establish causation.
-
-Uniform random search is checked against its theoretical success-probability law:
-
-$$
-P(\text{at least one success in }N\text{ evaluations})
-= 1-(1-q)^N,
-$$
-
-where $q$ is the probability that a single uniform draw meets the defined success criterion. It is estimated using a large uniform sample.
-
-## Finance Application: GARCH(1,1)
-
-The secondary application calibrates a Gaussian quasi-maximum-likelihood GARCH(1,1) model on rolling windows of WTI returns.
-
-The main optimisation arm uses the reparameterisation
-
-$$
-(\log\omega,p,s),
-\qquad p=\alpha+\beta,
-\qquad s=\frac{\alpha}{\alpha+\beta}.
-$$
-
-The original parameters are recovered using
-
-$$
-\alpha=ps,
-\qquad
-\beta=p(1-s),
-\qquad
-\omega=\exp(\log\omega).
-$$
-
-The bounds on $p$ and $s$ must enforce the intended parameter constraints. In particular, $p$ must remain strictly between zero and one for $\alpha+\beta<1$, and $s$ must remain strictly between zero and one if both $\alpha$ and $\beta$ are required to be positive. The exact numerical bounds will be documented and frozen before the main finance runs.
-
-The proposed rolling design uses a 750-day estimation window and a 250-day step. The custom likelihood will be validated against the `arch` package on at least three windows before scaling up.
-
-The analysis compares optimiser likelihood gaps, tests whether the Jacobi-scaled Hessian condition number of each window predicts the diagonal-versus-full CMA-ES gap, and compares out-of-sample volatility forecasts using QLIKE.
-
-This is a model-calibration study, not a trading backtest, and it makes no profitability claim.
-
-## Data
-
-| Item | Detail |
-|---|---|
-| Series | FRED `DCOILWTICO`, daily WTI spot price in USD per barrel |
-| Original data source | U.S. Energy Information Administration |
-| Source URL | [FRED: DCOILWTICO](https://fred.stlouisfed.org/series/DCOILWTICO) |
-| Intended frozen copy | `data/DCOILWTICO.csv` |
-| Retrieval date | To be recorded when the CSV is downloaded and frozen |
-
-Missing days are dropped. Returns are calculated as
-
-$$
-r_t=100\ln\left(\frac{P_t}{P_{t-1}}\right),
-$$
-
-where $P_t$ is the WTI spot price. Returns are demeaned using the estimation-window mean.
-
-The series contains a non-positive price observation on 20 April 2020. Log returns are undefined for non-positive prices, so any estimation window containing that observation is excluded from the main analysis, and the exclusion is recorded.
+Mechanism diagnostics include $\kappa_{\mathrm{eff}} = \mathrm{cond}(\Sigma^{1/2} H \Sigma^{1/2})$ for CMA-ES (whether the search distribution matches the inverse Hessian) and the fitted ARD lengthscales for BO. Sensitivity analyses vary the floor ($10^{-6}$, $10^{-10}$) and, optionally, the initial step size and dimension.
 
 ## Repository Structure
 
 ```text
 dsa4212-bo-cmaes/
 ├── code/
-│   └── ...
+│   ├── objectives.py        # ellipsoid, Sphere, rotations, Hessian diagnostics
+│   ├── config_loader.py     # loads and validates configs/experiment.yaml
+│   ├── runner.py            # exact-budget wrapper, seeds, CMA-ES variants, uniform search
+│   ├── run_pilot.py         # pilot experiment
+│   └── tests/               # unit and smoke tests
 ├── configs/
 │   └── experiment.yaml
-├── data/
-│   └── DCOILWTICO.csv
-├── report/
-│   └── figures/
+├── report/                  # LaTeX source, bibliography and figures of the submitted report
 ├── results/
-│   ├── raw/
-│   ├── processed/
-│   └── figures/
-├── README.md
+│   ├── raw/                 # evaluation-level logs and problem instances
+│   ├── processed/           # aggregated tables
+│   └── figures/             # generated figures
+├── readme.md
 ├── authors.md
 ├── decision_log.md
 └── requirements.txt
 ```
 
-- `code/`: objective functions, optimisation methods, experiment runners, analysis scripts, and tests.
-- `configs/`: experiment settings.
-- `data/`: frozen input data and associated source metadata.
-- `report/`: report source and figures selected for the final report.
-- `results/raw/`: evaluation-level logs and raw outputs.
-- `results/processed/`: aggregated results and analysis tables.
-- `results/figures/`: generated result figures.
-- `decision_log.md`: dated record of design choices, alternatives, rationale, and unresolved decisions.
-
 ## Environment Setup
 
-Requires Python (version to be confirmed).
-
-From the repository root:
+Requires Python 3.12.4. From the repository root:
 
 ```bash
 python3 -m venv .venv
@@ -228,44 +106,39 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Package versions, including `cma`, `arch`, and the selected BO library, are pinned in `requirements.txt`.
+Package versions are pinned in `requirements.txt`.
+
+## Data
+
+No external data are used. All problem instances are generated from seeds recorded in `configs/experiment.yaml`; each instance (optimum, rotation matrix, $\kappa_H$, $\kappa_J$) is saved with the results.
 
 ## Reproducing Results
-
-The commands below are intended entry points. They should be treated as planned commands until the corresponding scripts have been implemented and tested.
 
 ```bash
 # Unit tests
 python -m pytest code/tests
 
-# Synthetic study: ellipsoid and Sphere
-python code/run_synthetic.py --config configs/experiment.yaml
+# Pilot (CMA-ES variants and uniform search); writes to results/raw/pilot/<run_id>/
+python code/run_pilot.py
+python code/run_pilot.py --quick   # 10-second smoke test
+```
 
-# Finance application: GARCH(1,1)
-python code/run_garch.py --config configs/experiment.yaml
+The following entry points are planned and will be confirmed once implemented and tested:
 
-# Regenerate tables and figures
-python code/make_figures.py
+```bash
+python code/run_main.py --config configs/experiment.yaml   # main runs
+python code/make_figures.py                               # every table and figure in the report
 ```
 
 ## Reproducibility
 
-The project preserves:
-
-- Experiment configurations and software versions.
-- Problem-instance and method seeds.
-- The optimum and rotation matrix for each synthetic instance.
-- Per-evaluation objective values, best-so-far values, and boundary-event flags.
-- CMA-ES covariance snapshots and BO hyperparameter diagnostics.
-- Raw results and the scripts used to generate tables and figures.
-
-Main-run settings are frozen after the pilot. Unexpected results are investigated rather than silently rerun or omitted.
+The project preserves the experiment configuration, software versions, problem and method seeds, every problem instance, per-evaluation logs (point, objective value, best-so-far, bound-repair flag), CMA-ES covariance snapshots, BO hyperparameter diagnostics, and the scripts that generate every table and figure. Main-run settings are frozen after the pilot; unexpected results are investigated rather than silently rerun or omitted.
 
 ## Project Status
 
-**Current stage:** Implementation and pilot preparation.
+**Current stage:** pilot preparation.
 
-The immediate priority is to implement and test the ellipsoid and Sphere objectives, verify problem generation and evaluation logging, and run a small pilot. The GARCH application follows the priority order in the project proposal.
+Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, and the pilot script. Next: run the pilot and freeze the budget and floor, then implement BO.
 
 ## Submission
 
