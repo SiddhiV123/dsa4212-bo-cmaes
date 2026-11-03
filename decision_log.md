@@ -367,6 +367,14 @@ Changes made after the main runs begin must be documented explicitly. Runs shoul
 
 The final report should describe the settings actually used, including justified deviations from the original plan.
 
+### Change record: pilot re-run with final code (3 November 2026)
+
+- **Decision changed:** official pilot run for D11, D14 and D17.
+- **Previous setting:** pilot run `20261103T022221Z`.
+- **New setting:** pilot run `20261103T025402Z`, produced by the final code (commit `1c32a07`).
+- **Reason:** after the first pilot, the code was updated (covariance snapshots record their true evaluation count; the pilot plot applies the $10^{-8}$ floor; BO diagnostics fixed; documentation renumbered). The pilot was re-run so the official pilot comes from the final code.
+- **Pilot or main runs already started:** pilot only; no main runs.
+- **Effect on comparability or interpretation:** none. Regret at every checkpoint, evaluations used and stop categories are identical across the two runs, so the budget (2,000), floor ($10^{-8}$) and tolerance outcomes are unchanged. Both runs are retained in `results/raw/pilot/`.
 ---
 
 ## 9. References 

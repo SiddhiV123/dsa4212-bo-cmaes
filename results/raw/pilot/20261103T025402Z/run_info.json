@@ -1,0 +1,25 @@
+{
+ "stage": "pilot",
+ "run_id": "20261103T025402Z",
+ "quick": false,
+ "budget": 2000,
+ "checkpoints": [
+  90,
+  250,
+  500,
+  1000,
+  2000
+ ],
+ "replicates": 5,
+ "n_runs": 80,
+ "software": {
+  "python": "3.12.4",
+  "numpy": "2.5.4",
+  "pandas": "3.0.6",
+  "cma": "4.5.0"
+ },
+ "stop_categories": {
+  "budget": 54,
+  "numerical_precision": 26
+ }
+}
