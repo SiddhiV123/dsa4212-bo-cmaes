@@ -155,8 +155,8 @@ def test_pilot_overrides_apply_without_changing_main_config():
     main = load_config(stage="main")
     pilot = load_config(stage="pilot")
 
-    # Main-run settings remain provisional.
-    assert main["evaluation"]["budget_per_method"] is None
+    # Main-run budget is frozen after the pilot (D11).
+    assert main["evaluation"]["budget_per_method"] == 2000
 
     # The pilot receives the configured provisional budget.
     assert pilot["evaluation"]["budget_per_method"] == 2000
@@ -188,7 +188,7 @@ def test_invalid_stage_is_rejected():
 
 
 # ---------------------------------------------------------------------------
-# Drift, required options and readiness checks (decision log D9, D28)
+# Drift, required options and readiness checks (decision log D8, D19)
 # ---------------------------------------------------------------------------
 
 import yaml

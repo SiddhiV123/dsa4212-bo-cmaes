@@ -1,4 +1,4 @@
-"""Run the synthetic pilot (decision log D12, D29).
+"""Run the synthetic pilot (decision log D11, D20).
 
 Usage (from the repo root):
     python code/run_pilot.py                 # full pilot from configs/experiment.yaml
@@ -104,7 +104,7 @@ def run_pilot(
                         for c, snap in res.covariance_snapshots.items():
                             covariances.append({
                                 "method": method, "problem_seed": p, "orientation": orientation,
-                                "kappa": kappa, "checkpoint": c,
+                                "kappa": kappa, "checkpoint": c, "evals_at_snapshot": snap.get("evals_at_snapshot"),
                                 "kappa_eff": kappa_eff(np.array(snap["evaluated"]), inst.hessian),
                                 "internal": snap["internal"], "evaluated": snap["evaluated"],
                             })
@@ -130,8 +130,11 @@ def run_pilot(
     return out_dir
 
 
-def plot_regret(out_dir: Path, floor: float = 1e-300) -> Path:
-    """Median log10 regret against evaluations, one panel per condition."""
+def plot_regret(out_dir: Path, floor: float = 1e-8) -> Path:
+    """Median log10 regret against evaluations, one panel per condition.
+
+    Regret below the pre-specified floor (D14) is shown at the floor.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -151,7 +154,9 @@ def plot_regret(out_dir: Path, floor: float = 1e-300) -> Path:
         ax.set_xscale("log")
         ax.set_title(f"kappa={cond.kappa:g}, {cond.orientation}")
         ax.set_xlabel("evaluations")
-    axes[0].set_ylabel("median log10 regret")
+    for ax in axes:
+        ax.axhline(np.log10(floor), color="grey", lw=0.8, ls="--")
+    axes[0].set_ylabel(f"median log10 regret (floor {floor:g})")
     axes[-1].legend(fontsize=7)
     fig.suptitle("PILOT DATA (excluded from confirmatory analysis)", fontsize=9)
     fig.tight_layout()
@@ -165,7 +170,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--quick", action="store_true", help="smoke test: 1 replicate, budget 100")
+    parser.add_argument("--replot", type=Path, help="regenerate the figure for an existing pilot folder only")
     args = parser.parse_args()
+
+    if args.replot:
+        print(f"Figure: {plot_regret(args.replot)}")
+        return
 
     out_dir = run_pilot(args.config, quick=args.quick)
     fig = plot_regret(out_dir)

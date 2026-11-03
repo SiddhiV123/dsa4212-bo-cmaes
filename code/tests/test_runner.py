@@ -1,4 +1,4 @@
-"""Tests for code/runner.py (decision log D7, D9-D14)."""
+"""Tests for code/runner.py (decision log D6, D8-D13)."""
 
 import numpy as np
 import pytest
@@ -162,7 +162,7 @@ def test_early_termination_is_flagged(cfg):
     assert set(res.checkpoint_regret) == set(CHECKPOINTS)
 
 
-# ------------------------------------------- covariance (D8, D9, D19)
+# ------------------------------------------- covariance (D7, D8, D18)
 
 def test_diagonal_covariance_has_no_off_diagonals(cfg):
     inst, opts, sigma0, x0, p = _setup(cfg, "cma_es_diagonal")
@@ -252,3 +252,10 @@ def test_stop_category():
     assert stop_category(90, 100, {"noeffectcoord": [1], "noeffectaxis": None}) == "numerical_precision"
     assert stop_category(90, 100, {"tolconditioncov": 1e14}) == "other"
     assert stop_category(90, 100, {"noeffectaxis": None, "tolupsigma": 1}) == "other"
+
+def test_covariance_snapshots_record_true_evaluation_count(cfg):
+    inst, opts, sigma0, x0, p = _setup(cfg, "cma_es_full")
+    res = run_cma(inst, "cma_es_full", opts, sigma0, x0, BUDGET, CHECKPOINTS, p)
+    for c, snap in res.covariance_snapshots.items():
+        assert snap["evals_at_snapshot"] >= min(c, res.evals_used)
+        assert snap["evals_at_snapshot"] - c < 8 or c == BUDGET   # within one generation

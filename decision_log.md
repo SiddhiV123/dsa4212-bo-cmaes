@@ -2,9 +2,9 @@
 
 **Project:** When Does Geometry-Aware Search Pay Off?  
 **Topic:** Bayesian optimisation versus evolution strategies  
-**Last updated:** 3 November 2026  
+**Last updated:** 3 November 2026 (post-pilot)  
 **Citation style:** APA 7th edition (author–date). Full references in Section 9.  
-**Status:** Pilot preparation
+**Status:** Pilot complete; post-pilot settings frozen; BO smoke test next
 
 This document records the main experimental design decisions, their rationale, alternatives considered, and the settings that remain unresolved. Decisions marked *provisional* are reviewed after the pilot and frozen before the main experiments.
 
@@ -67,7 +67,7 @@ Here, $R=I$ for aligned instances and $R$ is an orthogonal matrix for rotated in
 
 **Rationale:** A fixed optimum at the origin could unintentionally favour methods whose initialisation is centred or whose sampling scheme is symmetric around the origin. Independent randomisation reduces this source of bias.
 
-**Status:** Design accepted; sub-box fraction 0.8 for the pilot, to be confirmed at the freeze.
+**Status:** Frozen after the pilot: sub-box fraction 0.8; bound handling pycma `BoundTransform`.
 
 ### D5. Use Sphere for supporting validation; keep other functions out of scope
 
@@ -156,7 +156,7 @@ The initial step size is $\sigma_0 = 0.3\,(b-a)$, following Hansen's rule for a 
 
 **Rationale:** Comparing methods by iterations rather than objective evaluations would not provide a fair comparison because one iteration can involve different numbers of evaluations across methods. The budget also changes which family wins: BO tends to do well at limited budgets and is often outperformed at larger ones (Raponi et al., 2023).
 
-**Provisional pilot budget:** The pilot uses a provisional ceiling of 2,000 evaluations ($500d$ at $d=4$), with checkpoints at 90, 250, 500, 1,000 and 2,000. An informal pre-pilot check (10 seeds per condition, target $f(x) \le 10^{-8}$) found that full CMA-ES needed about 750–1,420 evaluations on the tested $\kappa=10^4$ instances, while diagonal CMA-ES did not reach the target on any rotated instance within 20,000; this is exploratory, not confirmatory. The ceiling allows for covariance learning, whose characteristic horizon is roughly $n^2/\mu_{\mathrm{eff}}$ generations (Hansen, 2023, Section 3.2), and lies within the pycma documentation's rule of thumb of $100n$ to $300n^2$ evaluations for hard problems (Hansen et al., 2019). The 90-evaluation checkpoint equals $10d+50$, the budget Santoni et al. (2024) used for their structural-mechanics applications, a domain-specific precedent.
+**Provisional pilot budget:** The pilot uses a provisional ceiling of 2,000 evaluations ($500d$ at $d=4$), with checkpoints at 90, 250, 500, 1,000 and 2,000. The ceiling allows for covariance learning, whose characteristic horizon is roughly $n^2/\mu_{\mathrm{eff}}$ generations (Hansen, 2023, Section 3.2), and lies within the pycma documentation's rule of thumb of $100n$ to $300n^2$ evaluations for hard problems (Hansen et al., 2019). The 90-evaluation checkpoint equals $10d+50$, the budget Santoni et al. (2024) used for their structural-mechanics applications, a domain-specific precedent.
 
 **Selection rule (fixed before the pilot is analysed):**
 1. Set the log-regret floor by the rule in D14 and freeze it, together with the rule for when a replicate counts as having reached it.
@@ -166,7 +166,9 @@ The initial step size is $\sigma_0 = 0.3\,(b-a)$, following Hansen's rule for a 
 
 **BO budget:** BO runs to a lower ceiling fixed by its smoke test, because exact GP fitting costs $n^3/6$ per Cholesky factorisation (Rasmussen & Williams, 2006, Algorithm 2.1). All methods are compared at the shared checkpoints, since algorithms are only comparable up to the smallest budget given to any of them (Hansen et al., 2016).
 
-**Status:** Enforcement implemented and tested; budget selected by the rule above.
+**Pilot outcome (run 20261103T022221Z, recorded in `results/raw/pilot/`):** full CMA-ES on the rotated $\kappa=10^4$ ellipsoid reached the floor in 0/5, 0/5, 0/5, 2/5 and 5/5 replicates at 90, 250, 500, 1,000 and 2,000 evaluations, so the main budget is **2,000**. Feasibility: 0.12 s per CMA-ES run on average; 26 of 80 runs stopped early, all with `stop_category = "numerical_precision"` and none `"other"`. BO's ceiling is set separately by its smoke test.
+
+**Status:** Frozen: main budget 2,000 evaluations; checkpoints 90, 250, 500, 1,000, 2,000.
 
 ### D12. Pair methods on the same problem instances
 
@@ -208,7 +210,9 @@ where $x_{\mathrm{best}}$ is the best evaluated point (D6). Analyse $\log_{10}(r
 
 **Sensitivity analysis:** the primary comparisons are also reported at floors of $10^{-6}$ and $10^{-10}$.
 
-**Status:** Outcome and floor rule accepted; floor confirmed at the pilot.
+**Pilot outcome:** all 30 $\kappa=1$ CMA-ES runs reached $10^{-8}$ (worst final regret $7\times10^{-24}$), so the floor is frozen at $10^{-8}$.
+
+**Status:** Frozen: floor $10^{-8}$.
 
 ### D15. Use difference-in-differences comparisons for the primary hypotheses
 
@@ -244,7 +248,9 @@ Analyses beyond the two primary comparisons are labelled in advance (D22): pre-r
 
 **Rationale:** Small numerical or sampling-related differences should be interpreted against a pre-specified tolerance rather than an arbitrary threshold. Because the start box is not rotated with the problem, exact invariance is not expected: in a similar check, the only systematic effect was initialisation in the non-rotated hypercube $[-5,5]^n$ (Loshchilov, 2017).
 
-**Status:** Rule accepted; checked at the pilot and applied to the main runs.
+**Pilot outcome:** every method's aligned-minus-rotated difference at $\kappa=1$ was exactly zero. Because the rotated sphere is the same function and aligned and rotated runs share $x_{\mathrm{opt}}$, $x_0$ and seeds, the runs are identical. This confirms that rotation, seeding and pairing are implemented correctly, but it does not test box effects, which can only arise for $\kappa>1$; those are examined through the secondary analyses and bound-repair counts.
+
+**Status:** Rule satisfied at the pilot; limitation recorded.
 
 ### D18. Use mechanism diagnostics to interpret results
 
@@ -338,11 +344,8 @@ These settings remain open, in the order they are needed.
 
 | Item | Outstanding decision | Entry | Required before |
 |---|---|---|---|
-| Evaluation budget | Final budget by the pre-stated rule | D11 | Main runs |
-| Log-regret floor | Confirm $10^{-8}$ is reachable at $\kappa=1$ | D14 | Main runs |
-| Invariance tolerance | Check the $\pm 0.5$ margin is informative at the pilot | D17 | Main runs |
-| Search domain | Confirm boundary handling and sub-box fraction at the freeze | D4 | Main runs |
 | Bayesian optimisation | Initial design size, restart counts, fixed jitter, BO ceiling | D11, D21 | BO smoke test |
+| Common comparison budget | Checkpoint used for the BO primary comparison (the BO ceiling), with full CMA-ES read at the same checkpoint | D11, D15 | Main runs |
 | Primary analysis | Bootstrap replicate count | D16 | Main analysis |
 | Diagnostics | Uniform-search success criterion | D6 | Main analysis |
 
@@ -366,9 +369,9 @@ The final report should describe the settings actually used, including justified
 
 ---
 
-## 9. References ***VERIFY SOURCES***
+## 9. References 
 
-*Verify every bibliographic detail before submission.*
+***Verify every bibliographic detail before submission.***
 
 - Akimoto, Y., & Hansen, N. (2020). Diagonal acceleration for covariance matrix adaptation evolution strategies. *Evolutionary Computation, 28*(3), 405–435. https://arxiv.org/abs/1905.05885
 - Bartz-Beielstein, T., Doerr, C., van den Berg, D., Bossek, J., Chandrasekaran, S., Eftimov, T., Fischbach, A., Kerschke, P., La Cava, W., López-Ibáñez, M., Malan, K. M., Moore, J. H., Naujoks, B., Orzechowski, P., Volz, V., Wagner, M., & Weise, T. (2020). *Benchmarking in optimization: Best practice and open issues* (arXiv:2007.03488). arXiv. https://doi.org/10.48550/arXiv.2007.03488

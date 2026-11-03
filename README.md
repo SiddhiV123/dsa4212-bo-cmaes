@@ -9,7 +9,7 @@ This project investigates when Bayesian optimisation (BO) and CMA-ES succeed or 
 
 > Methods whose internal model is **axis-aligned** (BO with an ARD kernel, diagonal CMA-ES) should lose performance when an ill-conditioned problem is rotated. A method that can represent **any orientation** (full CMA-ES) should not, once it has had enough evaluations to adapt.
 
-The study uses rotated ellipsoids, where conditioning and orientation can be varied independently while the optimum and Hessian are known exactly. A planned GARCH(1,1) application was removed from scope (decision log D31).
+The study uses rotated ellipsoids, where conditioning and orientation can be varied independently while the optimum and Hessian are known exactly.
 
 All design decisions, alternatives and sources are recorded in [`decision_log.md`](decision_log.md).
 
@@ -34,7 +34,7 @@ All design decisions, alternatives and sources are recorded in [`decision_log.md
 | BO, isotropic kernel | One lengthscale; rotation-invariant | Matérn 5/2 isotropic Gaussian process, expected improvement |
 | Uniform random search | None; ignores feedback | Independent uniform draws over the box |
 
-No method is tuned per problem. CMA-ES uses pycma defaults with $\sigma_0 = 0.3 \times$ box width and a uniform random start (Hansen, 2023); BO uses standard defaults with GP hyperparameters fitted by maximum marginal likelihood (decision log D30). The BO library and its numerical settings are fixed by a smoke test before the main runs.
+No method is tuned per problem. CMA-ES uses pycma defaults with $\sigma_0 = 0.3 \times$ box width and a uniform random start (Hansen, 2023); BO uses standard defaults with GP hyperparameters fitted by maximum marginal likelihood (decision log D21). The BO library and its numerical settings are fixed by a smoke test before the main runs.
 
 ## Experimental Design
 
@@ -50,14 +50,14 @@ $$
 - **Dimension:** $d=4$.
 - **Domain:** $[-5,5]^4$, with the optimum drawn uniformly in $[-4,4]^4$.
 - **Replicates:** 50 per condition. Every method faces the same instances; aligned and rotated instances share their optimum; the CMA-ES variants share their start point.
-- **Budget:** objective evaluations, enforced exactly by one counting wrapper. The main budget is selected from pilot checkpoints (90, 250, 500, 1,000, 2,000) by a rule fixed before the pilot (D12). BO runs to a lower ceiling and all methods are compared at shared checkpoints.
+- **Budget:** objective evaluations, enforced exactly by one counting wrapper. The main budget is selected from pilot checkpoints (90, 250, 500, 1,000, 2,000) by a rule fixed before the pilot (D11). BO runs to a lower ceiling and all methods are compared at shared checkpoints.
 - **Costs:** wall-clock time is reported separately from evaluations.
 
 The Sphere is used only for unit tests and validation.
 
 ## Evaluation
 
-The primary outcome is the final simple regret of the best evaluated point, $r = f(\hat{x}) - f(x_{\mathrm{opt}})$, analysed as $\log_{10}$ regret with a floor of $10^{-8}$ (D15).
+The primary outcome is the final simple regret of the best evaluated point, $r = f(\hat{x}) - f(x_{\mathrm{opt}})$, analysed as $\log_{10}$ regret with a floor of $10^{-8}$ (D14).
 
 Each primary comparison is a difference-in-differences against full CMA-ES at $d=4$, $\kappa=10^4$:
 
@@ -122,6 +122,7 @@ python -m pytest code/tests
 # Pilot (CMA-ES variants and uniform search); writes to results/raw/pilot/<run_id>/
 python code/run_pilot.py
 python code/run_pilot.py --quick   # 10-second smoke test
+python code/run_pilot.py --replot results/raw/pilot/<run_id>   # redraw the figure only
 ```
 
 The following entry points are planned and will be confirmed once implemented and tested:
@@ -137,9 +138,9 @@ The project preserves the experiment configuration, software versions, problem a
 
 ## Project Status
 
-**Current stage:** pilot preparation.
+**Current stage:** pilot complete; BO smoke test next.
 
-Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, Bayesian optimisation (ARD and isotropic kernels) and the pilot script. Next: run the pilot and freeze the budget and floor, then fix BO's settings with a smoke test.
+Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, Bayesian optimisation (ARD and isotropic kernels) and the pilot script. The pilot fixed the main CMA-ES budget at 2,000 evaluations and confirmed the $10^{-8}$ log-regret floor by rules recorded before it ran (decision log D11, D14, D17). Next: the BO smoke test, then the main runs.
 
 ## Submission
 

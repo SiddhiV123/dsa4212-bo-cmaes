@@ -1,14 +1,14 @@
 """Run one optimiser on one problem instance under an exact evaluation budget.
 
 Decision log references:
-    D7   every method reports its best *evaluated* point
-    D9   CMA-ES variants share every setting except their covariance option
-    D10  x0 uniform in the box, independent of x_opt, shared by CMA variants
-    D11  early termination is flagged, never presented as a full-budget run
-    D12  one counting wrapper enforces the budget; the final CMA-ES
+    D6   every method reports its best *evaluated* point
+    D8   CMA-ES variants share every setting except their covariance option
+    D9  x0 uniform in the box, independent of x_opt, shared by CMA variants
+    D10  early termination is flagged, never presented as a full-budget run
+    D11  one counting wrapper enforces the budget; the final CMA-ES
          generation is truncated to the first k candidates
-    D13  problem seeds depend on condition and replicate only
-    D14  per-evaluation logging; covariance snapshots for diagnostics
+    D12  problem seeds depend on condition and replicate only
+    D13  per-evaluation logging; covariance snapshots for diagnostics
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ METHOD_IDS = {
     "bayesian_optimisation": 5,
 }
 
-# pycma termination criteria disabled so runs go to budget (D11).
+# pycma termination criteria disabled so runs go to budget (D10).
 # Safety stops that signal genuine failure (tolconditioncov, tolupsigma,
 # tolfacupx) are kept; if one fires, the run is flagged incomplete.
 RUN_TO_BUDGET_OPTIONS = {
@@ -54,7 +54,7 @@ RUN_TO_BUDGET_OPTIONS = {
     "tolx": 0,
     "tolstagnation": 10**12,
     "tolflatfitness": 10**12,
-    "tolxstagnation": [0, 10**12, 1.0],   # [threshold, iterations, fraction]; 0 disables
+    "tolxstagnation": False,              # documented way to turn it off (pycma option docs)
     "maxfevals": np.inf,
     "maxiter": np.inf,
 }
@@ -66,7 +66,7 @@ NUMERICAL_PRECISION_STOPS = frozenset({"noeffectaxis", "noeffectcoord"})
 
 
 def stop_category(evals_used: int, budget: int, early: dict | None) -> str:
-    """'budget', 'numerical_precision' or 'other' (decision log D11)."""
+    """'budget', 'numerical_precision' or 'other' (decision log D10)."""
     if evals_used == budget:
         return "budget"
     if early and set(early) <= NUMERICAL_PRECISION_STOPS:
@@ -75,7 +75,7 @@ def stop_category(evals_used: int, budget: int, early: dict | None) -> str:
 
 
 # ----------------------------------------------------------------------
-# Seeds (D13)
+# Seeds (D12)
 # ----------------------------------------------------------------------
 
 def derive_seed(*keys: int) -> int:
@@ -86,7 +86,7 @@ def derive_seed(*keys: int) -> int:
 
 def problem_seed(base_seed: int, stage_offset: int, d: int, kappa: float, replicate: int) -> int:
     """Seed for x_opt and R. Orientation is deliberately NOT a key, so the
-    aligned and rotated instances of a replicate share x_opt (D13)."""
+    aligned and rotated instances of a replicate share x_opt (D12)."""
     return derive_seed(base_seed, stage_offset, d, int(round(kappa)), replicate)
 
 
@@ -96,7 +96,7 @@ def method_seed(p_seed: int, method: str) -> int:
 
 
 def initial_point(p_seed: int, d: int, lower: float, upper: float) -> np.ndarray:
-    """CMA-ES start: uniform in the box, from its own stream (D10).
+    """CMA-ES start: uniform in the box, from its own stream (D9).
 
     Independent of x_opt (different stream), identical for all CMA variants
     and for the aligned and rotated instances of a replicate.
@@ -106,7 +106,7 @@ def initial_point(p_seed: int, d: int, lower: float, upper: float) -> np.ndarray
 
 
 # ----------------------------------------------------------------------
-# Counting wrapper (D12)
+# Counting wrapper (D11)
 # ----------------------------------------------------------------------
 
 class BudgetExhausted(RuntimeError):
@@ -177,7 +177,7 @@ class CountingObjective:
         """For an incomplete run, carry the best value to later checkpoints.
 
         The run stays flagged incomplete (budget_completed=False) so these
-        values are never mistaken for full-budget results (D11).
+        values are never mistaken for full-budget results (D10).
         """
         for c in self.checkpoints:
             self.checkpoint_best.setdefault(c, self.best_f)
@@ -251,7 +251,7 @@ def _finish(obj, method, p_seed, m_seed, early, t0, snaps) -> RunResult:
 
 
 # ----------------------------------------------------------------------
-# Covariance diagnostics (D19)
+# Covariance diagnostics (D18)
 # ----------------------------------------------------------------------
 
 def effective_covariance(es, evaluated: bool = True) -> np.ndarray:
@@ -267,9 +267,9 @@ def effective_covariance(es, evaluated: bool = True) -> np.ndarray:
         Jacobian of the transform at the mean.
 
     evaluated=False returns the internal covariance (used to verify that the
-    diagonal / isotropic variants behave as specified, D8-D9); evaluated=True
+    diagonal / isotropic variants behave as specified, D7-D8); evaluated=True
     returns the covariance of the points actually evaluated (used for
-    kappa_eff, D19). Near a bound the two differ even for isotropic ES.
+    kappa_eff, D18). Near a bound the two differ even for isotropic ES.
     """
     d = es.N
     C = np.asarray(es.C, dtype=float)
@@ -336,7 +336,7 @@ def run_cma(
     f_opt: float = 0.0,
     log_points: bool = True,
 ) -> RunResult:
-    """Run one pycma variant to an exact budget (D11, D12)."""
+    """Run one pycma variant to an exact budget (D10, D11)."""
     import cma
 
     m_seed = method_seed(p_seed, method)
@@ -345,7 +345,11 @@ def run_cma(
     snaps: dict[int, dict[str, list[list[float]]]] = {}
 
     def snapshot(es):
+        # CMA-ES updates once per generation, so a snapshot is taken at the
+        # first generation boundary at or after the nominal checkpoint; the
+        # true evaluation count is recorded with it.
         return {
+            "evals_at_snapshot": obj.n_evals,
             "internal": effective_covariance(es, evaluated=False).tolist(),
             "evaluated": effective_covariance(es, evaluated=True).tolist(),
         }
@@ -371,7 +375,7 @@ def run_cma(
                 repaired = bh is not None and not np.allclose(bh.inverse(x), x)
                 values.append(obj(x, repaired=repaired))
             if k < len(X):
-                break  # truncated final generation: no update (D12)
+                break  # truncated final generation: no update (D11)
             es.tell(X, values)
             while next_snap < len(checkpoints) and obj.n_evals >= checkpoints[next_snap]:
                 snaps[checkpoints[next_snap]] = snapshot(es)

@@ -11,7 +11,7 @@ project:
   name: "When Does Geometry-Aware Search Pay Off?"
   course: "DSA4212"
   proposal_version: "v9"
-  status: "pilot_preparation"
+  status: "post_pilot_frozen"
   study: "synthetic_ellipsoid"
 
 reproducibility:
@@ -32,8 +32,8 @@ synthetic:
   domain:
     lower_bound: -5.0
     upper_bound: 5.0
-    status: "provisional"
-    boundary_handling: null             # pilot: pycma BoundTransform (D4)
+    status: "frozen_after_pilot"
+    boundary_handling: "pycma_bound_transform"   # D4, frozen after pilot
 
   ellipsoid:
     dimensions: [4]
@@ -49,7 +49,7 @@ synthetic:
 
     optimum:
       sampling: "uniform_in_configured_sub_box"
-      sub_box_fraction: null            # pilot: 0.8, i.e. [-4, 4]^d (D4)
+      sub_box_fraction: 0.8             # [-4, 4]^d (D4), frozen after pilot
       independent_of_optimizer_initialisation: true
 
     rotation:
@@ -108,14 +108,14 @@ methods:
   # rejects any variant that overrides a shared setting.
   cma_es_common:
     library: "cma"
-    library_version: null                  # record from the installed version
+    library_version: "4.5.0"
     initial_point_policy: "uniform_in_search_box"     # D9
     initial_point_independent_of_optimum: true
     initial_point_shared_across_variants: true
     initial_step_size_fraction_of_box_width: 0.3      # D9: Hansen (2023), App. A
     initial_step_size_status: "fixed"
-    population_size: null                  # pilot: pycma default (D21)
-    boundary_handling: null                # pilot: pycma BoundTransform
+    population_size: "pycma_default"       # 4 + floor(3 ln n) = 8 at d = 4 (D21)
+    boundary_handling: "pycma_bound_transform"
 
     stopping:                              # D10
       policy: "run_to_budget"
@@ -161,7 +161,7 @@ methods:
 # --------------------------------------------------
 
 evaluation:
-  budget_per_method: null                  # selected by the D11 rule after the pilot
+  budget_per_method: 2000                  # D11 rule applied to the pilot
   target_replicates_per_condition: 50      # D12
   replicate_count_status: "fixed"
   exact_budget_required: true
@@ -182,8 +182,8 @@ evaluation:
   report_wall_clock_time_separately: true
 
   checkpoints:
-    evaluation_counts: null                # pilot: [90, 250, 500, 1000, 2000]
-    status: "pending_pilot"
+    evaluation_counts: [90, 250, 500, 1000, 2000]
+    status: "frozen_after_pilot"
 
 # --------------------------------------------------
 # Analysis (D14-D18, D22)
@@ -194,7 +194,7 @@ analysis:
   regret_definition: "f(x_best_evaluated) - f(x_opt)"
   log_regret_base: 10
   log_regret_floor: 1.0e-8                 # D14: smallest COCO target
-  log_regret_floor_status: "pending_pilot_confirmation"
+  log_regret_floor_status: "confirmed_at_pilot"
   floor_sensitivity: [1.0e-6, 1.0e-10]
 
   primary_comparisons:                     # D15
@@ -223,7 +223,7 @@ analysis:
   invariance_tolerance:                    # D17
     value: 0.5
     rule: "95% paired bootstrap CI of aligned-minus-rotated log regret at kappa = 1 lies within +/- value"
-    status: "fixed_before_pilot"
+    status: "rule_satisfied_at_pilot"
 
   secondary:                               # D22
     - "rotation_penalty_across_checkpoints"

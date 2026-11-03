@@ -3,7 +3,7 @@
 Ellipsoid (main experiment) and Sphere (validation only), plus Haar-random
 rotations and the Hessian diagnostics used as instance covariates.
 
-Conventions (see decision log D3-D5):
+Conventions (see decision log D2-D4):
     f(x) = sum_{i=1..d} kappa^((i-1)/(d-1)) * z_i^2,   z = R (x - x_opt)
     In code the index runs i = 0..d-1, so the weight is kappa^(i/(d-1)).
     Optimum value is 0 at x = x_opt.
@@ -95,7 +95,7 @@ def haar_orthogonal(d: int, rng: np.random.Generator) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------
-# Hessian diagnostics (instance covariates; decision log D19, D26)
+# Hessian diagnostics (instance covariates; decision log D18, D22)
 # ----------------------------------------------------------------------
 
 def ellipsoid_hessian(kappa: float, R: np.ndarray) -> np.ndarray:
@@ -171,7 +171,7 @@ def make_ellipsoid_instance(
     """Draw x_opt uniformly in the centred sub-box and R per orientation.
 
     The problem seed must depend only on the condition and replicate index
-    (decision log D13), never on the method, so every method sees the same
+    (decision log D12), never on the method, so every method sees the same
     instance. x_opt is drawn before R, so the aligned and rotated instances
     built from the same seed share x_opt.
     """

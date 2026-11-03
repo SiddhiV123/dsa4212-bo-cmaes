@@ -1,4 +1,4 @@
-"""Unit tests for code/objectives.py (decision log D3-D5, freeze checklist D29)."""
+"""Unit tests for code/objectives.py (decision log D2-D4, freeze checklist D20)."""
 
 import numpy as np
 import pytest
@@ -207,7 +207,7 @@ def test_instance_rejects_bad_arguments():
         make_ellipsoid_instance(4, 1e2, "aligned", problem_seed=0, sub_box_fraction=0)
 
 def test_matches_pycma_elli():
-    """External cross-check of D3 against pycma's reference ellipsoid."""
+    """External cross-check of D2 against pycma's reference ellipsoid."""
     cma = pytest.importorskip("cma")
     X = np.random.default_rng(20).uniform(-5, 5, size=(20, 4))
     for kappa in KAPPAS:

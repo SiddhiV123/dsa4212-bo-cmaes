@@ -23,7 +23,7 @@ class ConfigError(ValueError):
     """Raised when the experiment configuration is invalid."""
 
 
-# Settings that must be non-null before a stage may run (decision log D28).
+# Settings that must be non-null before a stage may run (decision log D19).
 READY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "pilot": (
         "reproducibility.base_seed",
@@ -55,7 +55,7 @@ READY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# Options each variant must still carry after resolution (D8, D9).
+# Options each variant must still carry after resolution (D7, D8).
 REQUIRED_VARIANT_OPTIONS = {
     "cma_es_diagonal": ("CMA_diagonal", True),
     "isotropic_es": ("CMA_on", 0),
@@ -188,7 +188,7 @@ def apply_pilot_overrides(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def check_cma_consistency(resolved: dict[str, Any]) -> None:
-    """Every cma_es_common setting must be identical in each variant (D9).
+    """Every cma_es_common setting must be identical in each variant (D8).
 
     Variants may add keys (covariance_mode, options) but must not override
     a shared key. Required variant options must survive the merge.
@@ -208,7 +208,7 @@ def check_cma_consistency(resolved: dict[str, Any]) -> None:
 
 
 def check_ready(config: dict[str, Any], stage: str) -> None:
-    """Refuse to run a stage while required settings are null or invalid (D28).
+    """Refuse to run a stage while required settings are null or invalid (D19).
 
     load_config(stage="pilot") calls this automatically. The main-run entry
     point must call check_ready(config, "main") before launching any run.

@@ -177,10 +177,9 @@ def run_bo(
     U = initial_design(p_seed, d, n_init)
     y = np.array([obj(to_x(u)) for u in U])
 
-    gp = None
-    while obj.remaining > 0:
-        t_model = time.perf_counter()
-        gp = GaussianProcessRegressor(
+    def fit_gp(U, y):
+        nonlocal n_fit_warnings
+        model = GaussianProcessRegressor(
             kernel=make_kernel(kind, d),
             alpha=jitter,
             normalize_y=True,
@@ -189,8 +188,22 @@ def run_bo(
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ConvergenceWarning)
-            gp.fit(U, y)
+            model.fit(U, y)
         n_fit_warnings += sum(issubclass(w.category, ConvergenceWarning) for w in caught)
+        return model
+
+    # Checkpoints inside the initial design have no fitted model yet.
+    for c in checkpoints:
+        if c < n_init:
+            diagnostics["checkpoints"][c] = None
+
+    while obj.remaining > 0:
+        t_model = time.perf_counter()
+        gp = fit_gp(U, y)
+        # This model uses every observation made so far, so it is the model
+        # "at" checkpoint len(y): record it there (not one evaluation late).
+        if len(y) in checkpoints:
+            diagnostics["checkpoints"][len(y)] = _gp_state(gp, len(y))
 
         # With normalize_y=True, predict() returns mean and std in original
         # units, so the incumbent is simply the best observed value.
@@ -201,13 +214,11 @@ def run_bo(
         U = np.vstack([U, u_next])
         y = np.append(y, y_next)
 
-        if obj.n_evals in checkpoints:
-            diagnostics["checkpoints"][obj.n_evals] = _gp_state(gp)
-
-    # Checkpoints reached during the initial design have no fitted model yet.
-    if gp is not None:
-        for c in checkpoints:
-            diagnostics["checkpoints"].setdefault(c, _gp_state(gp))
+    # The final checkpoint is reached by the last evaluation, after the last
+    # fit, so fit one diagnostic model on all observations. It is not used to
+    # choose any point and is excluded from the overhead timing (D13).
+    if obj.n_evals in checkpoints and obj.n_evals not in diagnostics["checkpoints"]:
+        diagnostics["checkpoints"][obj.n_evals] = _gp_state(fit_gp(U, y), len(y))
     diagnostics["overhead_s"] = overhead_s
     diagnostics["n_fit_convergence_warnings"] = n_fit_warnings
 
@@ -216,10 +227,11 @@ def run_bo(
                        diagnostics=diagnostics)
 
 
-def _gp_state(gp) -> dict[str, Any]:
+def _gp_state(gp, n_points: int) -> dict[str, Any]:
     """Fitted hyperparameters, in unit-box coordinates (D18 lengthscale diagnostic)."""
     k = gp.kernel_
     return {
+        "n_points": int(n_points),
         "length_scale": np.atleast_1d(k.k2.length_scale).tolist(),
         "signal_variance": float(k.k1.constant_value),
         "log_marginal_likelihood": float(gp.log_marginal_likelihood_value_),

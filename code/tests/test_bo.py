@@ -130,3 +130,15 @@ def test_invalid_arguments_rejected(kwargs):
     args.update(kwargs)
     with pytest.raises(ValueError):
         run_bo(**args)
+
+
+def test_lengthscale_snapshot_uses_all_observations_at_checkpoint():
+    """The model logged at checkpoint c was fitted on exactly c observations."""
+    res = _run("bo_ard")
+    for c, state in res.diagnostics["checkpoints"].items():
+        assert state["n_points"] == c
+
+
+def test_checkpoints_inside_initial_design_have_no_model():
+    res = run_bo(sphere, "bo_ard", 4, -5, 5, BUDGET, [3, BUDGET], 7, n_init=N_INIT, **FAST)
+    assert res.diagnostics["checkpoints"][3] is None
