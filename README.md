@@ -80,6 +80,7 @@ dsa4212-bo-cmaes/
 │   ├── objectives.py        # ellipsoid, Sphere, rotations, Hessian diagnostics
 │   ├── config_loader.py     # loads and validates configs/experiment.yaml
 │   ├── runner.py            # exact-budget wrapper, seeds, CMA-ES variants, uniform search
+│   ├── bo.py                # Bayesian optimisation (ARD and isotropic Matérn 5/2, expected improvement)
 │   ├── run_pilot.py         # pilot experiment
 │   └── tests/               # unit and smoke tests
 ├── configs/
@@ -138,7 +139,7 @@ The project preserves the experiment configuration, software versions, problem a
 
 **Current stage:** pilot preparation.
 
-Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, and the pilot script. Next: run the pilot and freeze the budget and floor, then implement BO.
+Implemented and tested: objectives, configuration loader, exact-budget runner, CMA-ES variants, uniform search, Bayesian optimisation (ARD and isotropic kernels) and the pilot script. Next: run the pilot and freeze the budget and floor, then fix BO's settings with a smoke test.
 
 ## Submission
 
