@@ -1,4 +1,4 @@
-"""Bayesian optimisation under an exact evaluation budget (decision log D30, D32).
+"""Bayesian optimisation under an exact evaluation budget (decision log D21, D22).
 
 Two variants that differ only in the kernel's lengthscale structure:
 
@@ -16,7 +16,7 @@ Sec. 5.4.1 and p. 115), a fixed small jitter, a Latin hypercube initial
 design that counts towards the budget, and expected improvement (Jones et
 al., 1998) maximised by multi-start L-BFGS-B. Every objective call goes
 through runner.CountingObjective, so the budget is exact and the reported
-solution is the best *evaluated* point (D7, D12).
+solution is the best *evaluated* point (D6, D11).
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from runner import CountingObjective, RunResult, _finish, derive_seed
 
 __all__ = [
     "BO_METHODS",
+    "initial_design",
     "BORunResult",
     "expected_improvement",
     "make_kernel",
@@ -49,10 +50,25 @@ _BO_SEED_KEYS = {"ard": 2001, "isotropic": 2002}   # distinct from runner.METHOD
 
 @dataclass
 class BORunResult(RunResult):
-    """RunResult plus BO diagnostics (D14, D19, D32 item 7)."""
+    """RunResult plus BO diagnostics (D13, D18, D22 item 5)."""
 
     # checkpoint -> {"length_scale": [...], "signal_variance": float, ...}
     diagnostics: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+# ----------------------------------------------------------------------
+# Initial design (shared by both BO variants)
+# ----------------------------------------------------------------------
+
+def initial_design(p_seed: int, d: int, n_init: int) -> np.ndarray:
+    """Latin hypercube in the unit box, seeded from the PROBLEM, not the method.
+
+    Both BO variants therefore start from the same design on each instance,
+    so their comparison is paired, as the CMA-ES variants share x0 (D9).
+    Latin hypercube sampling: McKay, Beckman & Conover (1979).
+    """
+    rng = np.random.default_rng(derive_seed(p_seed, 998))
+    return qmc.LatinHypercube(d=d, seed=rng).random(n_init)
 
 
 # ----------------------------------------------------------------------
@@ -142,7 +158,7 @@ def run_bo(
     if not 1 <= n_init <= budget:
         raise ValueError("n_init must be between 1 and the budget")
     if jitter <= 0:
-        raise ValueError("jitter must be positive (a fixed, non-learned noise term; D30)")
+        raise ValueError("jitter must be positive (a fixed, non-learned noise term; D21)")
 
     kind = BO_METHODS[method]
     m_seed = derive_seed(p_seed, _BO_SEED_KEYS[kind])
@@ -157,8 +173,8 @@ def run_bo(
     diagnostics: dict[str, Any] = {"kernel": kind, "n_init": n_init, "jitter": jitter,
                                    "n_restarts_gp": n_restarts_gp, "checkpoints": {}}
 
-    # Initial design: Latin hypercube in the unit box, counted in the budget.
-    U = qmc.LatinHypercube(d=d, seed=rng).random(n_init)
+    # Initial design: shared Latin hypercube in the unit box, counted in the budget.
+    U = initial_design(p_seed, d, n_init)
     y = np.array([obj(to_x(u)) for u in U])
 
     gp = None
@@ -201,7 +217,7 @@ def run_bo(
 
 
 def _gp_state(gp) -> dict[str, Any]:
-    """Fitted hyperparameters, in unit-box coordinates (D19 lengthscale diagnostic)."""
+    """Fitted hyperparameters, in unit-box coordinates (D18 lengthscale diagnostic)."""
     k = gp.kernel_
     return {
         "length_scale": np.atleast_1d(k.k2.length_scale).tolist(),

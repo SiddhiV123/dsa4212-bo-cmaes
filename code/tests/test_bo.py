@@ -1,4 +1,4 @@
-"""Tests for code/bo.py (decision log D7, D12, D30, D32)."""
+"""Tests for code/bo.py (decision log D6, D11, D21, D22)."""
 
 import numpy as np
 import pytest
@@ -6,7 +6,7 @@ from scipy.stats import norm
 
 pytest.importorskip("sklearn")
 
-from bo import BO_METHODS, expected_improvement, make_kernel, run_bo
+from bo import BO_METHODS, expected_improvement, initial_design, make_kernel, run_bo
 from objectives import make_ellipsoid_instance, sphere
 from runner import run_uniform
 
@@ -81,6 +81,17 @@ def test_initial_design_is_latin_hypercube():
     strata = np.floor((X + 5) / 10 * N_INIT).astype(int)
     for j in range(4):                      # one point in each stratum per axis
         assert sorted(strata[:, j]) == list(range(N_INIT))
+
+
+def test_variants_share_initial_design():
+    """ARD and isotropic BO start from the same points on an instance (paired)."""
+    a = [r["x"] for r in _run("bo_ard").eval_log[:N_INIT]]
+    b = [r["x"] for r in _run("bo_isotropic").eval_log[:N_INIT]]
+    assert a == b
+
+
+def test_initial_design_differs_across_instances():
+    assert not np.allclose(initial_design(1, 4, N_INIT), initial_design(2, 4, N_INIT))
 
 
 def test_reproducible():
