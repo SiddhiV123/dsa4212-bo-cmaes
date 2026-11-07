@@ -51,7 +51,16 @@ READY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "evaluation.checkpoints.evaluation_counts",
         "analysis.log_regret_floor",
         "analysis.invariance_tolerance.value",
+        "methods.bayesian_optimisation.initial_design_size",
+        "methods.bayesian_optimisation.acquisition_setting",
+        "methods.bayesian_optimisation.budget_ceiling",
+    ),
+    "analysis": (
+        "analysis.log_regret_floor",
         "analysis.uncertainty.bootstrap_replicates",
+        "analysis.uncertainty.confidence_level",
+        "diagnostics.random_search.success_criterion",
+        "diagnostics.random_search.large_uniform_sample_size",
     ),
 }
 
@@ -224,6 +233,21 @@ def check_ready(config: dict[str, Any], stage: str) -> None:
         )
 
     errors = []
+    if stage == "analysis":
+        if get_path(config, "analysis.uncertainty.bootstrap_replicates") < 1000:
+            errors.append("analysis.uncertainty.bootstrap_replicates should be at least 1000")
+        if errors:
+            raise ConfigError("Invalid configuration:\n  " + "\n  ".join(errors))
+        return
+    if stage == "main":
+        bo = config["methods"]["bayesian_optimisation"]
+        cps = list(get_path(config, "evaluation.checkpoints.evaluation_counts"))
+        if bo["budget_ceiling"] not in cps:
+            errors.append("methods.bayesian_optimisation.budget_ceiling must be one of the shared checkpoints")
+        if bo["acquisition_setting"] not in ("standard", "random"):
+            errors.append("methods.bayesian_optimisation.acquisition_setting must be 'standard' or 'random'")
+        if not 1 <= bo["initial_design_size"] < bo["budget_ceiling"]:
+            errors.append("methods.bayesian_optimisation.initial_design_size must be below the BO ceiling")
     if not get_path(config, "synthetic.domain.lower_bound") < get_path(config, "synthetic.domain.upper_bound"):
         errors.append("synthetic.domain.lower_bound must be < upper_bound")
     if not 0 < get_path(config, "synthetic.ellipsoid.optimum.sub_box_fraction") <= 1:

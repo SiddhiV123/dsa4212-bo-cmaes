@@ -89,17 +89,18 @@ methods:
     input_scaling: "unit_box"
     output_scaling: "standardised"
     hyperparameter_fit: "type_II_maximum_likelihood"
-    length_scale_bounds: "sklearn_default"
     implementation_library: "scikit-learn"
     implementation_library_version: null   # record from the installed version
-    initial_design_policy: "latin_hypercube_counted_in_budget"
-    initial_design_size: null              # BO smoke test (D21)
-    hyperparameter_fit_restarts: null      # BO smoke test (D21)
-    acquisition_optimiser_restarts: null   # BO smoke test (D21)
-    acquisition_candidates: null           # BO smoke test (D21)
-    observation_noise: null                # fixed jitter, BO smoke test (D21)
-    observation_noise_policy: "fixed_small_jitter_not_learned"
-    budget_ceiling: null                   # BO smoke test (D11)
+    # Settings below follow Le Riche & Picheny (2021); see D21.
+    initial_design_policy: "maximin_latin_hypercube_counted_in_budget"   # Sec. 3.2
+    initial_design_size: 8                 # d + 4 (Sec. 3.2, 6.1)
+    hyperparameter_fit_starts: 8           # 2d (Sec. 4.1)
+    length_scale_bounds_unit_box: [0.02, 2.0]   # [sqrt(d)/100, sqrt(d)] (Sec. 4.1)
+    jitter_policy: "1e-10; x100 after a failed fit, kept for the run"   # Sec. 4.1
+    acquisition_candidates: 2000           # min(2000, 500d) (Sec. 4.2)
+    acquisition_repeats: 4                 # min(10, d) (Sec. 4.2)
+    acquisition_setting: null              # "standard" or "random": BO smoke test (D21)
+    budget_ceiling: null                   # 250 or 90: BO smoke test (D11, D21)
     status: "pending_smoke_test"
 
   # Settings shared by all three CMA-ES variants (D8).
@@ -217,8 +218,10 @@ analysis:
   uncertainty:                             # D16
     method: "paired_bootstrap_confidence_interval"
     confidence_level: 0.95
-    bootstrap_replicates: null
-    status: "pending_analysis_plan"
+    bootstrap_replicates: 10000            # D16 (proposed; confirm before analysis)
+    resampling_unit: "replicate"           # paired: one replicate = one instance for every method
+    bootstrap_seed: 4212
+    status: "fixed_before_main_runs"
 
   invariance_tolerance:                    # D17
     value: 0.5
@@ -267,8 +270,17 @@ diagnostics:
   random_search:
     validate_success_probability_law: true
     success_probability_formula: "1 - (1 - q)^N"
-    success_criterion: null
-    large_uniform_sample_size: null
+    success_criterion: 1.0                 # regret <= 1 (proposed; confirm before analysis)
+    large_uniform_sample_size: 100000      # Monte Carlo estimate of q per instance
+
+# --------------------------------------------------
+# Main runs (D11, D12)
+# --------------------------------------------------
+
+main:
+  seed_offset: 0                           # pilot uses 1,000,000; BO smoke test 2,000,000
+  cma_and_uniform_methods: ["cma_es_full", "cma_es_diagonal", "isotropic_es", "uniform_random_search"]
+  bo_methods: ["bo_ard", "bo_isotropic"]
 
 # --------------------------------------------------
 # Output paths
