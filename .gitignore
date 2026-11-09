@@ -24,3 +24,8 @@ __pycache__/
 
 # Python virtual environment
 .venv/
+# Test cache
+.pytest_cache/
+
+# Temporary per-task files from run_main.py (merged and deleted when a run finishes)
+results/raw/main/*/parts/
