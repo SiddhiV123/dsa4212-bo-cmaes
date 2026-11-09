@@ -30,7 +30,7 @@ synthetic:
   primary_objective: "ellipsoid"
 
   domain:
-    lower_bound: -5.0
+    lower_bound: -5.0                   # BBOB search domain [-5, 5]^d (D4)
     upper_bound: 5.0
     status: "frozen_after_pilot"
     boundary_handling: "pycma_bound_transform"   # D4, frozen after pilot
@@ -90,7 +90,7 @@ methods:
     output_scaling: "standardised"
     hyperparameter_fit: "type_II_maximum_likelihood"
     implementation_library: "scikit-learn"
-    implementation_library_version: null   # record from the installed version
+    implementation_library_version: null   # copy the scikit-learn version from requirements.txt
     # Settings below follow Le Riche & Picheny (2021); see D21.
     initial_design_policy: "maximin_latin_hypercube_counted_in_budget"   # Sec. 3.2
     initial_design_size: 8                 # d + 4 (Sec. 3.2, 6.1)
@@ -154,8 +154,7 @@ methods:
     enabled: true
     sampling: "independent_uniform_draws_over_search_box"
     uses_objective_feedback_to_choose_next_point: false
-    curve_method: "one_long_run_split_into_independent_experiments"
-    long_run_length: null
+    curve_method: "independent_runs_paired_with_other_methods"   # D6, D12: same instances as other methods
 
 # --------------------------------------------------
 # Fairness and evaluation budget (D11-D13)
@@ -192,27 +191,30 @@ evaluation:
 
 analysis:
   primary_outcome: "final_simple_regret"
-  regret_definition: "f(x_best_evaluated) - f(x_opt)"
+  regret_definition: "f(x_best_evaluated) - f(x_opt)"   # precision Delta-f (Hansen et al., 2009b, Sec. 1.1)
   log_regret_base: 10
-  log_regret_floor: 1.0e-8                 # D14: smallest COCO target
+  log_regret_floor: 1.0e-8                 # D14: final BBOB target
   log_regret_floor_status: "confirmed_at_pilot"
   floor_sensitivity: [1.0e-6, 1.0e-10]
 
   primary_comparisons:                     # D15
-    type: "difference_in_differences"
+    type: "method_x_orientation_interaction"   # 2^2 factorial interaction (Montgomery, Eq. 6.3); Delta = 2 x AB
     dimension: 4
     condition_number: 10000
     reference_method: "cma_es_full"
     compared_methods:
       - "cma_es_diagonal"
       - "bo_ard"
+    checkpoints:
+      cma_es_diagonal: "budget_per_method"           # 2,000 evaluations
+      bo_ard: "bo_budget_ceiling"                    # full CMA-ES read at the same checkpoint
     formula: >
       (mean_log_regret_rotated_M - mean_log_regret_aligned_M) -
       (mean_log_regret_rotated_full - mean_log_regret_aligned_full)
-    interpretation: "positive means rotation hurts method M more than full CMA-ES"
+    interpretation: "positive means rotation increases the regret of M more than that of full CMA-ES"
 
   pairing:
-    unit: "problem_instance"
+    unit: "problem_instance"               # each replicate is a block (Montgomery, Sec. 7.2)
     same_problem_instance_across_methods: true
 
   uncertainty:                             # D16
@@ -236,7 +238,8 @@ analysis:
     - "bo_isotropic_vs_bo_ard"
     - "wall_clock_cost_and_bo_break_even"
   robustness:
-    - "floor_sensitivity"
+    - "floor_sensitivity"                  # implemented in analysis.py
+  robustness_optional_not_implemented:     # D22 item 6: optional; not run unless time allows
     - "sigma0_in_0.15_and_0.5_box_width"
     - "dimension_2_and_8_cma_and_uniform"
 
@@ -269,7 +272,7 @@ diagnostics:
 
   random_search:
     validate_success_probability_law: true
-    success_probability_formula: "1 - (1 - q)^N"
+    success_probability_formula: "1 - (1 - q)^N"   # Bergstra & Bengio (2012), Sec. 4
     success_criterion: 1.0                 # regret <= 1 (proposed; confirm before analysis)
     large_uniform_sample_size: 100000      # Monte Carlo estimate of q per instance
 
@@ -312,12 +315,11 @@ freeze:
   require_bo_smoke_test: true
 
 # --------------------------------------------------
-# Pilot overrides (used ONLY when stage = "pilot")
+# Pilot settings (used ONLY when stage = "pilot")
 # --------------------------------------------------
-# Provisional values that let the pilot run while the main-run
-# settings above remain null. Pilot results are labelled as pilot
-# data, use their own seed stream, and are excluded from the
-# confirmatory analysis (D20).
+# The settings the pilot ran with, kept as its record. Pilot results are
+# labelled as pilot data, use their own seed stream, and are excluded
+# from the confirmatory analysis (D20).
 
 pilot:
   seed_offset: 1000000
