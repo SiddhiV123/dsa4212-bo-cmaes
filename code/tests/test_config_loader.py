@@ -229,8 +229,13 @@ def test_missing_required_variant_option_is_caught(raw):
 
 def test_main_stage_not_ready_while_settings_are_null():
     config = load_config(stage="main")
+    config["methods"]["bayesian_optimisation"]["budget_ceiling"] = None
     with pytest.raises(ConfigError, match="not ready"):
         check_ready(config, "main")
+
+
+def test_frozen_config_is_ready_for_main_runs():
+    check_ready(load_config(stage="main"), "main")
 
 
 def test_pilot_checkpoints_end_at_budget():

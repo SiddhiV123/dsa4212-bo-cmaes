@@ -99,9 +99,9 @@ methods:
     jitter_policy: "1e-10; x100 after a failed fit, kept for the run"   # Sec. 4.1
     acquisition_candidates: 2000           # min(2000, 500d) (Sec. 4.2)
     acquisition_repeats: 4                 # min(10, d) (Sec. 4.2)
-    acquisition_setting: null              # "standard" or "random": BO smoke test (D21)
-    budget_ceiling: null                   # 250 or 90: BO smoke test (D11, D21)
-    status: "pending_smoke_test"
+    acquisition_setting: "random"          # BO smoke test 20261110T095856Z (D21)
+    budget_ceiling: 250                    # BO smoke test 20261110T095856Z (D11, D21)
+    status: "frozen_after_smoke_test"
 
   # Settings shared by all three CMA-ES variants (D8).
   # NOTE: `inherits` is a project convention, not YAML inheritance.

@@ -1,0 +1,515 @@
+{
+ "rules": "decision log D21",
+ "quick": false,
+ "cap_hours": 2.0,
+ "workers": 8,
+ "n_main_bo_runs": 400,
+ "n_init": 8,
+ "machine": {
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.12.4",
+  "cpu_count": 10
+ },
+ "check1_initial_fits": {
+  "succeeded": 40,
+  "total": 40,
+  "detail": [
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 3,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "ard",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 2,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "aligned",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 1,
+    "orientation": "rotated",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "aligned",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 0,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 1,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 2,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 3,
+    "ok": true,
+    "convergence_warnings": 0,
+    "error": ""
+   },
+   {
+    "kernel": "isotropic",
+    "kappa": 10000,
+    "orientation": "rotated",
+    "replicate": 4,
+    "ok": true,
+    "convergence_warnings": 1,
+    "error": ""
+   }
+  ]
+ },
+ "check2_bo_runs": {
+  "completed": 8,
+  "total": 8,
+  "jitter_escalations": 0,
+  "detail": [
+   {
+    "kappa": 1,
+    "orientation": "aligned",
+    "method": "bo_ard",
+    "ok": true,
+    "wall_time_s": 10.613686166936532,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 335,
+    "acquisition_events": {},
+    "overhead_s": 10.441565374145284
+   },
+   {
+    "kappa": 1,
+    "orientation": "aligned",
+    "method": "bo_isotropic",
+    "ok": true,
+    "wall_time_s": 6.109834874980152,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 103,
+    "acquisition_events": {},
+    "overhead_s": 6.00391021091491
+   },
+   {
+    "kappa": 1,
+    "orientation": "rotated",
+    "method": "bo_ard",
+    "ok": true,
+    "wall_time_s": 10.654533833032474,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 323,
+    "acquisition_events": {},
+    "overhead_s": 10.432668547146022
+   },
+   {
+    "kappa": 1,
+    "orientation": "rotated",
+    "method": "bo_isotropic",
+    "ok": true,
+    "wall_time_s": 6.501510999863967,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 118,
+    "acquisition_events": {},
+    "overhead_s": 6.37735758186318
+   },
+   {
+    "kappa": 10000,
+    "orientation": "aligned",
+    "method": "bo_ard",
+    "ok": true,
+    "wall_time_s": 17.296179000055417,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 187,
+    "acquisition_events": {},
+    "overhead_s": 17.038134002592415
+   },
+   {
+    "kappa": 10000,
+    "orientation": "aligned",
+    "method": "bo_isotropic",
+    "ok": true,
+    "wall_time_s": 10.99925662507303,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 66,
+    "acquisition_events": {},
+    "overhead_s": 10.90415833517909
+   },
+   {
+    "kappa": 10000,
+    "orientation": "rotated",
+    "method": "bo_ard",
+    "ok": true,
+    "wall_time_s": 17.255059000104666,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 155,
+    "acquisition_events": {},
+    "overhead_s": 17.002666036598384
+   },
+   {
+    "kappa": 10000,
+    "orientation": "rotated",
+    "method": "bo_isotropic",
+    "ok": true,
+    "wall_time_s": 10.10837404220365,
+    "error": "",
+    "jitter_events": [],
+    "final_jitter": 1e-10,
+    "convergence_warnings": 67,
+    "acquisition_events": {},
+    "overhead_s": 10.046648963587359
+   }
+  ]
+ },
+ "ceiling": {
+  "chosen": 250,
+  "acq_setting": "random",
+  "projected_hours": 1.4851761870664228,
+  "within_cap": true,
+  "detail": {
+   "250_standard": {
+    "run_times_s": [
+     158.5954803749919,
+     77.48550770897418
+    ],
+    "mean_s": 118.04049404198304,
+    "projected_hours": 2.0493141326733166
+   },
+   "250_random": {
+    "run_times_s": [
+     125.71529458393343,
+     45.37700216611847
+    ],
+    "mean_s": 85.54614837502595,
+    "projected_hours": 1.4851761870664228
+   }
+  }
+ },
+ "run_id": "20261110T095856Z"
+}

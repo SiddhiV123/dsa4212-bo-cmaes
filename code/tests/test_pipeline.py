@@ -24,8 +24,17 @@ def run_dir(tmp_path_factory):
 
 
 def test_main_stage_requires_bo_settings():
+    config = load_config(stage="main")
+    config["methods"]["bayesian_optimisation"]["acquisition_setting"] = None
     with pytest.raises(ConfigError, match="not ready"):
-        check_ready(load_config(stage="main"), "main")
+        check_ready(config, "main")
+
+
+def test_bo_ceiling_must_be_a_shared_checkpoint():
+    config = load_config(stage="main")
+    config["methods"]["bayesian_optimisation"]["budget_ceiling"] = 300
+    with pytest.raises(ConfigError, match="shared checkpoints"):
+        check_ready(config, "main")
 
 
 def test_analysis_stage_ready():
