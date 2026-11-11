@@ -1,0 +1,32 @@
+{
+ "stage": "main",
+ "run_id": "main",
+ "quick": false,
+ "n_runs": 2400,
+ "budget": 2000,
+ "checkpoints": [
+  90,
+  250,
+  500,
+  1000,
+  2000
+ ],
+ "bo_ceiling": 250,
+ "bo_acquisition_setting": "random",
+ "replicates": 50,
+ "workers": 8,
+ "machine": "macOS-26.6.2-arm64-arm-64bit",
+ "cpu_count": 10,
+ "software": {
+  "python": "3.12.4",
+  "numpy": "2.5.4",
+  "pandas": "3.0.6",
+  "scipy": "1.18.1",
+  "scikit-learn": "1.9.1",
+  "cma": "4.5.0"
+ },
+ "stop_categories": {
+  "budget": 1749,
+  "numerical_precision": 651
+ }
+}

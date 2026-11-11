@@ -1,0 +1,336 @@
+project:
+  name: When Does Geometry-Aware Search Pay Off?
+  course: DSA4212
+  proposal_version: v9
+  status: post_pilot_frozen
+  study: synthetic_ellipsoid
+reproducibility:
+  base_seed: 4212
+  save_problem_instances: true
+  save_method_seeds: true
+  save_software_versions: true
+  record_evaluation_count: true
+  record_wall_clock_time: true
+synthetic:
+  primary_objective: ellipsoid
+  domain:
+    lower_bound: -5.0
+    upper_bound: 5.0
+    status: frozen_after_pilot
+    boundary_handling: pycma_bound_transform
+  ellipsoid:
+    dimensions:
+    - 4
+    condition_numbers:
+    - 1
+    - 10
+    - 100
+    - 1000
+    - 10000
+    bo_condition_numbers:
+    - 1
+    - 10000
+    orientations:
+    - aligned
+    - rotated
+    formula: sum_{i=1..d} kappa^((i-1)/(d-1)) * z_i^2
+    transformed_coordinates: z = R @ (x - x_opt)
+    optimum_value: 0.0
+    optimum:
+      sampling: uniform_in_configured_sub_box
+      sub_box_fraction: 0.8
+      independent_of_optimizer_initialisation: true
+    rotation:
+      aligned_matrix: identity
+      rotated_matrix: haar_random_orthogonal
+      generation_method: QR_with_sign_correction
+      save_matrix: true
+    condition_number_one_control: true
+    instance_covariates:
+      kappa_H: cond(H)
+      kappa_J: cond(D^(-1/2) H D^(-1/2)), D = diag(H)
+      expected_kappa_J_for_aligned: 1.0
+  sphere:
+    enabled: true
+    dimensions:
+    - 2
+    - 4
+    - 10
+    formula: sum_i x_i^2
+    optimum_value: 0.0
+    purpose:
+    - unit_tests
+    - method_interface_checks
+    - sanity_checks
+methods:
+  bayesian_optimisation:
+    enabled: true
+    variants:
+    - bo_ard
+    - bo_isotropic
+    surrogate: GaussianProcess
+    kernel: Matern52
+    acquisition_function: ExpectedImprovement
+    input_scaling: unit_box
+    output_scaling: standardised
+    hyperparameter_fit: type_II_maximum_likelihood
+    implementation_library: scikit-learn
+    implementation_library_version: null
+    initial_design_policy: maximin_latin_hypercube_counted_in_budget
+    initial_design_size: 8
+    hyperparameter_fit_starts: 8
+    length_scale_bounds_unit_box:
+    - 0.02
+    - 2.0
+    jitter_policy: 1e-10; x100 after a failed fit, kept for the run
+    acquisition_candidates: 2000
+    acquisition_repeats: 4
+    acquisition_setting: random
+    budget_ceiling: 250
+    status: frozen_after_smoke_test
+  cma_es_common:
+    library: cma
+    library_version: 4.5.0
+    initial_point_policy: uniform_in_search_box
+    initial_point_independent_of_optimum: true
+    initial_point_shared_across_variants: true
+    initial_step_size_fraction_of_box_width: 0.3
+    initial_step_size_status: fixed
+    population_size: pycma_default
+    boundary_handling: pycma_bound_transform
+    stopping:
+      policy: run_to_budget
+      max_evaluations_source: evaluation.budget_per_method
+      disable_tolerance_termination: true
+      on_early_termination: flag_incomplete_keep_best_evaluated_point
+      incomplete_run_policy: keep_in_analysis_with_flag_and_report_counts_per_method_and_condition
+  cma_es_full:
+    library: cma
+    library_version: 4.5.0
+    initial_point_policy: uniform_in_search_box
+    initial_point_independent_of_optimum: true
+    initial_point_shared_across_variants: true
+    initial_step_size_fraction_of_box_width: 0.3
+    initial_step_size_status: fixed
+    population_size: pycma_default
+    boundary_handling: pycma_bound_transform
+    stopping:
+      policy: run_to_budget
+      max_evaluations_source: evaluation.budget_per_method
+      disable_tolerance_termination: true
+      on_early_termination: flag_incomplete_keep_best_evaluated_point
+      incomplete_run_policy: keep_in_analysis_with_flag_and_report_counts_per_method_and_condition
+    enabled: true
+    covariance_mode: full
+    options: {}
+  cma_es_diagonal:
+    library: cma
+    library_version: 4.5.0
+    initial_point_policy: uniform_in_search_box
+    initial_point_independent_of_optimum: true
+    initial_point_shared_across_variants: true
+    initial_step_size_fraction_of_box_width: 0.3
+    initial_step_size_status: fixed
+    population_size: pycma_default
+    boundary_handling: pycma_bound_transform
+    stopping:
+      policy: run_to_budget
+      max_evaluations_source: evaluation.budget_per_method
+      disable_tolerance_termination: true
+      on_early_termination: flag_incomplete_keep_best_evaluated_point
+      incomplete_run_policy: keep_in_analysis_with_flag_and_report_counts_per_method_and_condition
+    enabled: true
+    covariance_mode: diagonal
+    variant: separable_cma_es
+    options:
+      CMA_diagonal: true
+    covariance_expectation: off_diagonals_zero_throughout
+    verification_required: true
+  isotropic_es:
+    library: cma
+    library_version: 4.5.0
+    initial_point_policy: uniform_in_search_box
+    initial_point_independent_of_optimum: true
+    initial_point_shared_across_variants: true
+    initial_step_size_fraction_of_box_width: 0.3
+    initial_step_size_status: fixed
+    population_size: pycma_default
+    boundary_handling: pycma_bound_transform
+    stopping:
+      policy: run_to_budget
+      max_evaluations_source: evaluation.budget_per_method
+      disable_tolerance_termination: true
+      on_early_termination: flag_incomplete_keep_best_evaluated_point
+      incomplete_run_policy: keep_in_analysis_with_flag_and_report_counts_per_method_and_condition
+    enabled: true
+    covariance_mode: isotropic
+    options:
+      CMA_on: 0
+    covariance_expectation: identity_throughout
+    verification_required: true
+  uniform_random_search:
+    enabled: true
+    sampling: independent_uniform_draws_over_search_box
+    uses_objective_feedback_to_choose_next_point: false
+    curve_method: independent_runs_paired_with_other_methods
+evaluation:
+  budget_per_method: 2000
+  target_replicates_per_condition: 50
+  replicate_count_status: fixed
+  exact_budget_required: true
+  budget_enforcement: runner_level_counting_wrapper
+  cma_final_batch_rule: evaluate_only_first_k_candidates_then_stop
+  count_initial_design_evaluations: true
+  truncate_final_cma_batch_if_needed: true
+  return_best_evaluated_point: true
+  compare_methods_on_same_problem_instance: true
+  derive_method_seeds_separately: true
+  record_boundary_events: true
+  record_evaluations_used_per_run: true
+  record_budget_completed_flag: true
+  report_wall_clock_time_separately: true
+  checkpoints:
+    evaluation_counts:
+    - 90
+    - 250
+    - 500
+    - 1000
+    - 2000
+    status: frozen_after_pilot
+analysis:
+  primary_outcome: final_simple_regret
+  regret_definition: f(x_best_evaluated) - f(x_opt)
+  log_regret_base: 10
+  log_regret_floor: 1.0e-08
+  log_regret_floor_status: confirmed_at_pilot
+  floor_sensitivity:
+  - 1.0e-06
+  - 1.0e-10
+  primary_comparisons:
+    type: method_x_orientation_interaction
+    dimension: 4
+    condition_number: 10000
+    reference_method: cma_es_full
+    compared_methods:
+    - cma_es_diagonal
+    - bo_ard
+    checkpoints:
+      cma_es_diagonal: budget_per_method
+      bo_ard: bo_budget_ceiling
+    formula: '(mean_log_regret_rotated_M - mean_log_regret_aligned_M) - (mean_log_regret_rotated_full
+      - mean_log_regret_aligned_full)
+
+      '
+    interpretation: positive means rotation increases the regret of M more than that
+      of full CMA-ES
+  pairing:
+    unit: problem_instance
+    same_problem_instance_across_methods: true
+  uncertainty:
+    method: paired_bootstrap_confidence_interval
+    confidence_level: 0.95
+    bootstrap_replicates: 10000
+    resampling_unit: replicate
+    bootstrap_seed: 4212
+    status: fixed_before_main_runs
+  invariance_tolerance:
+    value: 0.5
+    rule: 95% paired bootstrap CI of aligned-minus-rotated log regret at kappa = 1
+      lies within +/- value
+    status: rule_satisfied_at_pilot
+  secondary:
+  - rotation_penalty_across_checkpoints
+  - rotation_penalty_across_condition_numbers
+  - spearman_kappa_J_vs_diagonal_minus_full_gap
+  exploratory:
+  - bo_isotropic_vs_bo_ard
+  - wall_clock_cost_and_bo_break_even
+  robustness:
+  - floor_sensitivity
+  robustness_optional_not_implemented:
+  - sigma0_in_0.15_and_0.5_box_width
+  - dimension_2_and_8_cma_and_uniform
+diagnostics:
+  evaluation_log:
+    record_candidate: true
+    record_objective_value: true
+    record_best_so_far: true
+    record_evaluation_number: true
+    record_boundary_event: true
+    record_method_and_seed: true
+  cma_es:
+    save_covariance_snapshots: true
+    covariance_snapshot_frequency: every_checkpoint
+    effective_condition_number: 'cond(C^(1/2) H C^(1/2)), computed in evaluated coordinates
+
+      '
+    verify_diagonal_covariance: true
+    verify_isotropic_covariance: true
+  bayesian_optimisation:
+    save_ard_lengthscales: true
+    save_gp_hyperparameters: true
+    save_surrogate_overhead_time: true
+    compare_lengthscales_to_curvature: aligned_cases_only
+  random_search:
+    validate_success_probability_law: true
+    success_probability_formula: 1 - (1 - q)^N
+    success_criterion: 1.0
+    large_uniform_sample_size: 100000
+main:
+  seed_offset: 0
+  cma_and_uniform_methods:
+  - cma_es_full
+  - cma_es_diagonal
+  - isotropic_es
+  - uniform_random_search
+  bo_methods:
+  - bo_ard
+  - bo_isotropic
+paths:
+  raw_results: results/raw
+  processed_results: results/processed
+  figures: results/figures
+  report_figures: report/figures
+  raw_evaluation_format: parquet
+  processed_table_format: csv
+freeze:
+  require_pilot_complete: true
+  require_configuration_review: true
+  require_cma_option_verification: true
+  require_cma_stopping_policy_verified: true
+  require_cma_common_merge_test: true
+  require_objective_and_rotation_tests: true
+  require_budget_and_boundary_policy: true
+  require_log_regret_floor: true
+  require_invariance_tolerance: true
+  require_seed_policy: true
+  require_bo_smoke_test: true
+pilot:
+  seed_offset: 1000000
+  replicates_per_condition: 5
+  conditions:
+    condition_numbers:
+    - 1
+    - 10000
+    orientations:
+    - aligned
+    - rotated
+    dimensions:
+    - 4
+  methods:
+  - cma_es_full
+  - cma_es_diagonal
+  - isotropic_es
+  - uniform_random_search
+  overrides:
+    synthetic.ellipsoid.optimum.sub_box_fraction: 0.8
+    synthetic.domain.boundary_handling: pycma_bound_transform
+    methods.cma_es_common.boundary_handling: pycma_bound_transform
+    methods.cma_es_common.population_size: pycma_default
+    evaluation.budget_per_method: 2000
+    evaluation.checkpoints.evaluation_counts:
+    - 90
+    - 250
+    - 500
+    - 1000
+    - 2000

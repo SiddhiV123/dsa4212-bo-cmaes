@@ -1,0 +1,44 @@
+{
+ "run_id": "main",
+ "floor": 1e-08,
+ "bootstrap_replicates": 10000,
+ "budget": 2000,
+ "bo_ceiling": 250,
+ "primary": [
+  {
+   "role": "primary",
+   "method": "cma_es_diagonal",
+   "reference": "cma_es_full",
+   "kappa": 10000.0,
+   "checkpoint": 2000,
+   "floor": 1e-08,
+   "did": 8.599106517664964,
+   "ci_low": 8.321386526558257,
+   "ci_high": 8.84013077785421,
+   "n_replicates": 50,
+   "excludes_zero": true
+  },
+  {
+   "role": "primary",
+   "method": "bo_ard",
+   "reference": "cma_es_full",
+   "kappa": 10000.0,
+   "checkpoint": 250,
+   "floor": 1e-08,
+   "did": -0.035060175823027534,
+   "ci_low": -0.27147208768979986,
+   "ci_high": 0.2080788993563149,
+   "n_replicates": 50,
+   "excludes_zero": false
+  }
+ ],
+ "lengthscale_median_rho": {
+  "10000_aligned": -0.7745966692414834,
+  "10000_rotated": 0.2345087002125265
+ },
+ "n_runs": 2400,
+ "stop_categories": {
+  "budget": 1749,
+  "numerical_precision": 651
+ }
+}
